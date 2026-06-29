@@ -25,6 +25,9 @@ export const auth = betterAuth({
     minPasswordLength: 12,
     autoSignIn: true,
     resetPasswordTokenExpiresIn: 60 * 60, // 1 hour
+    // A reset is the canonical "my account is compromised" action — kill every
+    // other session so a stolen cookie can't outlive the reset.
+    revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {
       const mail = resetPasswordEmail(url);
       await sendEmail({ to: user.email, ...mail });

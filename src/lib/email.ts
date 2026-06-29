@@ -43,6 +43,21 @@ export async function sendEmail({ to, subject, html, text }: SendArgs) {
 
 const BRAND = "#0a0a0a";
 
+/** Escape user-supplied text before it goes into email HTML. */
+function esc(s: string) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Collapse whitespace (incl. tabs/newlines), trim, and clamp length. */
+function normalize(s: string) {
+  return s.replace(/\s+/g, " ").trim().slice(0, 80);
+}
+
 function shell(heading: string, body: string, cta?: { url: string; label: string }) {
   return `<!doctype html><html><body style="margin:0;background:#f6f6f6;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0a0a0a">
   <div style="max-width:480px;margin:0 auto;padding:32px 20px">
@@ -73,13 +88,15 @@ export function resetPasswordEmail(url: string) {
 }
 
 export function inviteEmail(groupName: string, url: string) {
+  const clean = normalize(groupName);
+  const safe = esc(clean);
   return {
-    subject: `You're invited to ${groupName} on Registry for Groups`,
+    subject: `You're invited to ${clean} on Registry for Groups`,
     html: shell(
-      `Join ${groupName} 🎁`,
-      `You've been invited to join <strong>${groupName}</strong> — make your wishlist and help pick gifts. This link is single-use and expires in 72 hours.`,
+      `Join ${safe} 🎁`,
+      `You've been invited to join <strong>${safe}</strong> — make your wishlist and help pick gifts. This link is single-use and expires in 72 hours.`,
       { url, label: "Accept invite" },
     ),
-    text: `You're invited to join ${groupName} on Registry for Groups (single-use, expires in 72h):\n${url}`,
+    text: `You're invited to join ${clean} on Registry for Groups (single-use, expires in 72h):\n${url}`,
   };
 }
