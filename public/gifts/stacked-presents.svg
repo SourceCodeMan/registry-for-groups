@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <linearGradient id="cranFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C04553"/>
+      <stop offset="1" stop-color="#B23A48"/>
+    </linearGradient>
+    <linearGradient id="pineFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#356A57"/>
+      <stop offset="1" stop-color="#2E5E4E"/>
+    </linearGradient>
+    <linearGradient id="goldFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E8C07D"/>
+      <stop offset="1" stop-color="#D99A4E"/>
+    </linearGradient>
+  </defs>
+
+  <!-- soft shared shadow -->
+  <ellipse cx="100" cy="170" rx="62" ry="11" fill="#D8C7AE" opacity="0.55"/>
+
+  <!-- ===== BOTTOM: cranberry (largest) ===== -->
+  <g>
+    <!-- box body -->
+    <rect x="48" y="120" width="86" height="46" rx="7" fill="url(#cranFace)"/>
+    <!-- lid -->
+    <rect x="44" y="112" width="94" height="16" rx="6" fill="#C04553"/>
+    <rect x="44" y="121" width="94" height="7" rx="3" fill="#8E2E3A" opacity="0.55"/>
+    <!-- vertical ribbon -->
+    <rect x="84" y="112" width="14" height="54" fill="#E8C07D"/>
+    <rect x="84" y="112" width="5" height="54" fill="#FFFFFF" opacity="0.35"/>
+    <!-- side shading -->
+    <path d="M122 120h12v46h-12z" fill="#8E2E3A" opacity="0.28"/>
+  </g>
+
+  <!-- ===== MIDDLE: pine ===== -->
+  <g>
+    <rect x="64" y="78" width="56" height="36" rx="6" fill="url(#pineFace)"/>
+    <rect x="60" y="71" width="64" height="13" rx="5" fill="#356A57"/>
+    <rect x="60" y="78" width="64" height="6" rx="3" fill="#214A3C" opacity="0.5"/>
+    <!-- horizontal ribbon -->
+    <rect x="64" y="90" width="56" height="11" fill="#D99A4E"/>
+    <rect x="64" y="90" width="56" height="4" fill="#E8C07D"/>
+    <!-- bow -->
+    <g>
+      <ellipse cx="84" cy="69" rx="9" ry="7" fill="#D99A4E"/>
+      <ellipse cx="100" cy="69" rx="9" ry="7" fill="#D99A4E"/>
+      <ellipse cx="84" cy="69" rx="4.5" ry="3.5" fill="#E8C07D"/>
+      <ellipse cx="100" cy="69" rx="4.5" ry="3.5" fill="#E8C07D"/>
+      <circle cx="92" cy="70" r="5" fill="#E8C07D"/>
+      <circle cx="92" cy="70" r="2.4" fill="#D99A4E"/>
+    </g>
+    <path d="M108 78h12v36h-12z" fill="#214A3C" opacity="0.25"/>
+  </g>
+
+  <!-- ===== TOP: gold (smallest) ===== -->
+  <g>
+    <rect x="78" y="44" width="40" height="30" rx="5" fill="url(#goldFace)"/>
+    <rect x="75" y="38" width="46" height="11" rx="4" fill="#E8C07D"/>
+    <rect x="75" y="44" width="46" height="5" rx="2.5" fill="#D8C7AE" opacity="0.5"/>
+    <!-- vertical ribbon -->
+    <rect x="92" y="38" width="12" height="36" fill="#B23A48"/>
+    <rect x="92" y="38" width="4" height="36" fill="#FFFFFF" opacity="0.25"/>
+    <!-- bow -->
+    <g>
+      <ellipse cx="90" cy="36" rx="7.5" ry="6" fill="#B23A48"/>
+      <ellipse cx="106" cy="36" rx="7.5" ry="6" fill="#B23A48"/>
+      <ellipse cx="90" cy="36" rx="3.5" ry="2.8" fill="#C04553"/>
+      <ellipse cx="106" cy="36" rx="3.5" ry="2.8" fill="#C04553"/>
+      <circle cx="98" cy="37" r="4.5" fill="#B23A48"/>
+      <circle cx="98" cy="37" r="2" fill="#8E2E3A"/>
+    </g>
+    <path d="M108 44h10v30h-10z" fill="#8E2E3A" opacity="0.16"/>
+  </g>
+
+  <!-- tiny sparkles -->
+  <g fill="#E8C07D">
+    <circle cx="44" cy="64" r="2.4"/>
+    <circle cx="152" cy="92" r="2.8"/>
+    <circle cx="138" cy="52" r="2"/>
+  </g>
+</svg>

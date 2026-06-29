@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <linearGradient id="goldLoop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E8C07D"/>
+      <stop offset="1" stop-color="#D99A4E"/>
+    </linearGradient>
+    <linearGradient id="goldLoopR" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E8C07D"/>
+      <stop offset="1" stop-color="#D99A4E"/>
+    </linearGradient>
+    <linearGradient id="goldTail" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D99A4E"/>
+      <stop offset="1" stop-color="#E8C07D"/>
+    </linearGradient>
+    <radialGradient id="knot" cx="0.5" cy="0.4" r="0.7">
+      <stop offset="0" stop-color="#C84A58"/>
+      <stop offset="1" stop-color="#8E2E3A"/>
+    </radialGradient>
+  </defs>
+
+  <!-- soft shadow under the bow -->
+  <ellipse cx="100" cy="150" rx="62" ry="13" fill="#D8C7AE" opacity="0.5"/>
+
+  <!-- ===== TAILS (behind) ===== -->
+  <!-- left tail -->
+  <path d="M92 100 C82 118 70 138 58 158 C54 164 46 164 41 161 L60 95 Z"
+        fill="url(#goldTail)"/>
+  <path d="M58 158 L41 161 L52 152 Z" fill="#8E2E3A"/>
+  <path d="M92 100 C84 116 74 134 64 150 L70 99 Z" fill="#E8C07D" opacity="0.45"/>
+
+  <!-- right tail -->
+  <path d="M108 100 C118 118 130 138 142 158 C146 164 154 164 159 161 L140 95 Z"
+        fill="url(#goldTail)"/>
+  <path d="M142 158 L159 161 L148 152 Z" fill="#8E2E3A"/>
+  <path d="M108 100 C116 116 126 134 136 150 L130 99 Z" fill="#D99A4E" opacity="0.4"/>
+
+  <!-- ===== LEFT LOOP ===== -->
+  <path d="M100 96 C82 70 50 64 36 82 C24 98 34 122 60 120 C82 118 96 108 100 96 Z"
+        fill="url(#goldLoop)"/>
+  <!-- inner fold shadow left -->
+  <path d="M100 96 C84 88 66 92 52 104 C44 110 42 116 50 119 C70 116 92 108 100 96 Z"
+        fill="#8E2E3A" opacity="0.18"/>
+  <!-- highlight left -->
+  <path d="M100 96 C84 74 58 70 44 82 C38 87 38 94 44 96 C62 86 86 86 100 96 Z"
+        fill="#FFFFFF" opacity="0.30"/>
+
+  <!-- ===== RIGHT LOOP ===== -->
+  <path d="M100 96 C118 70 150 64 164 82 C176 98 166 122 140 120 C118 118 104 108 100 96 Z"
+        fill="url(#goldLoopR)"/>
+  <!-- inner fold shadow right -->
+  <path d="M100 96 C116 88 134 92 148 104 C156 110 158 116 150 119 C130 116 108 108 100 96 Z"
+        fill="#8E2E3A" opacity="0.18"/>
+  <!-- highlight right -->
+  <path d="M100 96 C116 74 142 70 156 82 C162 87 162 94 156 96 C138 86 114 86 100 96 Z"
+        fill="#FFFFFF" opacity="0.30"/>
+
+  <!-- ===== INNER PLEATS (cranberry accents) ===== -->
+  <path d="M100 96 C92 88 80 90 72 100 C84 100 94 100 100 96 Z" fill="#B23A48"/>
+  <path d="M100 96 C108 88 120 90 128 100 C116 100 106 100 100 96 Z" fill="#B23A48"/>
+  <path d="M100 96 C94 92 86 94 80 100 L100 98 Z" fill="#8E2E3A" opacity="0.5"/>
+  <path d="M100 96 C106 92 114 94 120 100 L100 98 Z" fill="#8E2E3A" opacity="0.5"/>
+
+  <!-- ===== CENTER KNOT ===== -->
+  <rect x="89" y="84" width="22" height="26" rx="8" fill="url(#knot)"/>
+  <rect x="89" y="84" width="22" height="11" rx="8" fill="#FFFFFF" opacity="0.18"/>
+  <rect x="92" y="87" width="5" height="20" rx="2.5" fill="#FFFFFF" opacity="0.30"/>
+  <path d="M89 100 q11 6 22 0 v2 q-11 6 -22 0 Z" fill="#8E2E3A" opacity="0.55"/>
+</svg>

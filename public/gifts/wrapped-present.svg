@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <linearGradient id="boxFront" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#B23A48"/>
+      <stop offset="1" stop-color="#9A3340"/>
+    </linearGradient>
+    <linearGradient id="boxSide" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8E2E3A"/>
+      <stop offset="1" stop-color="#7C2832"/>
+    </linearGradient>
+    <linearGradient id="boxLid" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#C24654"/>
+      <stop offset="1" stop-color="#B23A48"/>
+    </linearGradient>
+    <linearGradient id="lidSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9A3340"/>
+      <stop offset="1" stop-color="#8E2E3A"/>
+    </linearGradient>
+    <linearGradient id="ribbonGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E8C07D"/>
+      <stop offset="1" stop-color="#D99A4E"/>
+    </linearGradient>
+    <linearGradient id="ribbonGoldSide" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#D99A4E"/>
+      <stop offset="1" stop-color="#C98B40"/>
+    </linearGradient>
+    <radialGradient id="bowGrad" cx="0.4" cy="0.35" r="0.8">
+      <stop offset="0" stop-color="#E8C07D"/>
+      <stop offset="1" stop-color="#D99A4E"/>
+    </radialGradient>
+    <radialGradient id="castShadow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#8E2E3A" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#8E2E3A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- cast shadow -->
+  <ellipse cx="102" cy="172" rx="62" ry="13" fill="url(#castShadow)"/>
+
+  <!-- ===== BOX BODY ===== -->
+  <!-- right side face -->
+  <path d="M100 96 L150 80 L150 142 L100 168 Z" fill="url(#boxSide)"/>
+  <!-- front face -->
+  <path d="M52 80 L100 96 L100 168 L52 156 Z" fill="url(#boxFront)"/>
+
+  <!-- ===== LID ===== -->
+  <!-- lid side (right) -->
+  <path d="M100 78 L158 60 L158 74 L100 92 Z" fill="url(#lidSide)"/>
+  <!-- lid side (front) -->
+  <path d="M44 60 L100 78 L100 92 L44 74 Z" fill="#9A3340"/>
+  <!-- lid top -->
+  <path d="M44 60 L100 44 L158 60 L100 78 Z" fill="url(#boxLid)"/>
+
+  <!-- ===== VERTICAL RIBBON ===== -->
+  <!-- ribbon over lid top -->
+  <path d="M86 47.6 L100 44 L114 47.6 L100 52 Z" fill="#E8C07D"/>
+  <path d="M86 47.6 L100 52 L100 78 L92 75.4 Z" fill="url(#ribbonGold)"/>
+  <path d="M100 52 L114 47.6 L114 73.4 L100 78 Z" fill="#E2B16A"/>
+  <!-- ribbon down front face -->
+  <path d="M92 75.4 L100 78 L100 168 L92 165.8 Z" fill="url(#ribbonGold)"/>
+  <path d="M100 78 L114 73.4 L114 162 L100 168 Z" fill="#D99A4E"/>
+
+  <!-- ===== HORIZONTAL RIBBON (across front) ===== -->
+  <path d="M52 116.5 L100 128.5 L100 142 L52 130 Z" fill="url(#ribbonGold)"/>
+  <!-- horizontal ribbon (across right side) -->
+  <path d="M100 128.5 L150 112 L150 125.5 L100 142 Z" fill="url(#ribbonGoldSide)"/>
+
+  <!-- ===== BOW ===== -->
+  <g>
+    <!-- back loops shadow -->
+    <ellipse cx="86" cy="36" rx="16" ry="11" fill="#C98B40" transform="rotate(-22 86 36)"/>
+    <ellipse cx="116" cy="36" rx="16" ry="11" fill="#C98B40" transform="rotate(22 116 36)"/>
+    <!-- ribbon tails -->
+    <path d="M99 44 L80 60 L88 62 L100 50 Z" fill="#D99A4E"/>
+    <path d="M101 44 L122 58 L114 61 L100 50 Z" fill="#E2B16A"/>
+    <!-- left loop -->
+    <path d="M99 42 C82 30 70 32 72 42 C74 52 90 50 99 45 Z" fill="url(#bowGrad)"/>
+    <!-- right loop -->
+    <path d="M101 42 C118 30 130 32 128 42 C126 52 110 50 101 45 Z" fill="url(#bowGrad)"/>
+    <!-- loop inner shading -->
+    <path d="M99 43 C88 37 80 37 79 42 C84 41 92 43 99 45 Z" fill="#C98B40" opacity="0.5"/>
+    <path d="M101 43 C112 37 120 37 121 42 C116 41 108 43 101 45 Z" fill="#C98B40" opacity="0.4"/>
+    <!-- center knot -->
+    <ellipse cx="100" cy="44" rx="9" ry="8" fill="#E8C07D"/>
+    <ellipse cx="100" cy="44" rx="9" ry="8" fill="#D99A4E" opacity="0.35"/>
+    <ellipse cx="97.5" cy="41.5" rx="3.5" ry="2.8" fill="#FFFFFF" opacity="0.55"/>
+  </g>
+
+  <!-- ===== HIGHLIGHTS ===== -->
+  <!-- lid top sheen -->
+  <path d="M58 60 L100 49 L118 54 L82 65 Z" fill="#FFFFFF" opacity="0.14"/>
+  <!-- front face soft highlight -->
+  <path d="M58 84 L86 92 L86 100 L58 92 Z" fill="#FFFFFF" opacity="0.10"/>
+</svg>

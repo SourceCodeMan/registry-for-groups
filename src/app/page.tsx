@@ -4,6 +4,7 @@ import { Gift, Users, EyeOff } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getSession } from "@/lib/session";
+import { GiftCarousel } from "@/components/gift-carousel";
 
 const STEPS = [
   {
@@ -52,8 +53,9 @@ export default async function Home() {
           backgroundImage:
             "radial-gradient(60% 55% at 50% 0%, color-mix(in oklch, var(--primary) 9%, transparent), transparent 70%)",
         }}
-        className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-6 pt-16 pb-20 text-center sm:pt-24"
+        className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-6 pt-12 pb-20 text-center sm:pt-16"
       >
+        <GiftCarousel className="size-40 sm:size-48" />
         <span className="rounded-full border bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground">
           Free for your group
         </span>

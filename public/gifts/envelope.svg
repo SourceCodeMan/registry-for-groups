@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <linearGradient id="bodyG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EFE6D6"/>
+      <stop offset="1" stop-color="#E8DECF"/>
+    </linearGradient>
+    <linearGradient id="flapG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F2EADC"/>
+      <stop offset="1" stop-color="#E0D2BB"/>
+    </linearGradient>
+    <linearGradient id="cardG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FBF7F0"/>
+    </linearGradient>
+    <radialGradient id="sealG" cx="0.4" cy="0.35" r="0.8">
+      <stop offset="0" stop-color="#C8505D"/>
+      <stop offset="1" stop-color="#8E2E3A"/>
+    </radialGradient>
+    <radialGradient id="groundG" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#D8C7AE" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#D8C7AE" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- soft ground shadow -->
+  <ellipse cx="100" cy="160" rx="64" ry="13" fill="url(#groundG)"/>
+
+  <!-- envelope back panel -->
+  <rect x="30" y="74" width="140" height="84" rx="12" fill="#D8C7AE"/>
+
+  <!-- card peeking out -->
+  <g>
+    <rect x="56" y="50" width="88" height="62" rx="7" fill="url(#cardG)"/>
+    <rect x="56" y="50" width="88" height="62" rx="7" fill="none" stroke="#E8DECF" stroke-width="1.5"/>
+    <!-- little heart on card -->
+    <path d="M100 70 C97 65 89 65 89 72 C89 78 100 85 100 85 C100 85 111 78 111 72 C111 65 103 65 100 70 Z" fill="#B23A48"/>
+    <!-- card text lines -->
+    <rect x="68" y="94" width="64" height="3.5" rx="1.75" fill="#E8DECF"/>
+    <rect x="78" y="102" width="44" height="3.5" rx="1.75" fill="#E8DECF"/>
+  </g>
+
+  <!-- envelope front body -->
+  <path d="M30 86 L30 146 Q30 158 42 158 L158 158 Q170 158 170 146 L170 86 L100 132 Z" fill="url(#bodyG)"/>
+
+  <!-- front diagonal seams -->
+  <path d="M30 86 L100 132 L170 86" fill="none" stroke="#D8C7AE" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M30 152 L74 118" fill="none" stroke="#DCCFB6" stroke-width="2" stroke-linecap="round"/>
+  <path d="M170 152 L126 118" fill="none" stroke="#DCCFB6" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- inner shadow under open flap -->
+  <path d="M44 76 L100 110 L156 76 L100 64 Z" fill="#D8C7AE" opacity="0.5"/>
+
+  <!-- top flap, open/up -->
+  <path d="M40 86 L100 32 L160 86 L100 60 Z" fill="url(#flapG)"/>
+  <path d="M40 86 L100 32 L160 86" fill="none" stroke="#D8C7AE" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+
+  <!-- flap highlight -->
+  <path d="M100 32 L150 78 L100 56 Z" fill="#FFFFFF" opacity="0.25"/>
+
+  <!-- wax seal on flap tip -->
+  <g>
+    <ellipse cx="100" cy="76" rx="15" ry="14" fill="#8E2E3A" opacity="0.35"/>
+    <circle cx="100" cy="73" r="14" fill="url(#sealG)"/>
+    <path d="M100 70 C97.5 66 91.5 66 91.5 71.5 C91.5 76 100 81 100 81 C100 81 108.5 76 108.5 71.5 C108.5 66 102.5 66 100 70 Z" fill="#E8C07D"/>
+    <ellipse cx="95" cy="68" rx="4" ry="2.6" fill="#FFFFFF" opacity="0.3"/>
+  </g>
+</svg>
