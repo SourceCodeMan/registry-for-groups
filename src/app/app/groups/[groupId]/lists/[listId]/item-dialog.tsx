@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Sparkles } from "lucide-react";
 import { createItemAction, updateItemAction } from "@/lib/list-actions";
 import {
   Dialog,
@@ -27,6 +28,17 @@ export type ItemData = {
   quantity: number;
 };
 
+function emptyFields(item?: ItemData) {
+  return {
+    title: item?.title ?? "",
+    url: item?.url ?? "",
+    price: item?.priceCents != null ? (item.priceCents / 100).toFixed(2) : "",
+    quantity: String(item?.quantity ?? 1),
+    imageUrl: item?.imageUrl ?? "",
+    description: item?.description ?? "",
+  };
+}
+
 export function ItemDialog({
   listId,
   item,
@@ -44,23 +56,83 @@ export function ItemDialog({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const [f, setF] = useState(() => emptyFields(item));
   const isEdit = !!item;
+
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setF((prev) => ({ ...prev, [k]: e.target.value }));
+
+  function onOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) setF(emptyFields(item)); // reset on close
+  }
+
+  async function fetchFromLink() {
+    const url = f.url.trim();
+    if (!url) {
+      toast.error("Paste a link first.");
+      return;
+    }
+    setFetching(true);
+    try {
+      const res = await fetch("/api/unfurl", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) {
+        toast.error("Couldn't fetch that link.");
+        return;
+      }
+      const data = (await res.json()) as {
+        title: string | null;
+        description: string | null;
+        imageUrl: string | null;
+        priceCents: number | null;
+      };
+      // Compute against the current snapshot, filling only empty fields.
+      const next = { ...f };
+      let filled = 0;
+      if (data.title && !f.title.trim()) {
+        next.title = data.title;
+        filled++;
+      }
+      if (data.priceCents != null && !f.price.trim()) {
+        next.price = (data.priceCents / 100).toFixed(2);
+        filled++;
+      }
+      if (data.imageUrl && !f.imageUrl.trim()) {
+        next.imageUrl = data.imageUrl;
+        filled++;
+      }
+      if (data.description && !f.description.trim()) {
+        next.description = data.description;
+        filled++;
+      }
+      setF(next);
+      if (filled > 0) toast.success("Filled in what we could find.");
+      else toast.message("Couldn't pull details — add them manually.");
+    } catch {
+      toast.error("Couldn't fetch that link.");
+    } finally {
+      setFetching(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const formEl = e.currentTarget;
-    const f = new FormData(formEl);
-    const data = {
-      title: String(f.get("title") ?? ""),
-      description: String(f.get("description") ?? ""),
-      url: String(f.get("url") ?? ""),
-      imageUrl: String(f.get("imageUrl") ?? ""),
-      price: String(f.get("price") ?? ""),
-      quantity: String(f.get("quantity") ?? "1"),
-    };
-    setLoading(true);
+    setSaving(true);
     try {
+      const data = {
+        title: f.title,
+        description: f.description,
+        url: f.url,
+        imageUrl: f.imageUrl,
+        price: f.price,
+        quantity: f.quantity,
+      };
       const res = isEdit
         ? await updateItemAction(item!.id, data)
         : await createItemAction(listId, data);
@@ -68,18 +140,14 @@ export function ItemDialog({
         toast.error(res.error ?? "Could not save the item.");
         return;
       }
-      if (!isEdit) formEl.reset();
-      setOpen(false);
+      onOpenChange(false);
       router.refresh();
     } catch {
       toast.error("Something went wrong.");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   }
-
-  const dollars =
-    item?.priceCents != null ? (item.priceCents / 100).toFixed(2) : "";
 
   return (
     <>
@@ -91,34 +159,45 @@ export function ItemDialog({
       >
         {triggerLabel}
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{isEdit ? "Edit item" : "Add an item"}</DialogTitle>
             <DialogDescription>
-              Only you can edit this — others just see it on your list.
+              Paste a link and let us fill in the details, or type them in.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
+              <Label htmlFor="url">Link (optional)</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="url"
+                  type="url"
+                  value={f.url}
+                  onChange={set("url")}
+                  placeholder="https://…"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={fetchFromLink}
+                  disabled={fetching}
+                >
+                  <Sparkles className="size-4" />
+                  {fetching ? "Fetching…" : "Fetch"}
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="title">Name</Label>
               <Input
                 id="title"
-                name="title"
+                value={f.title}
+                onChange={set("title")}
                 required
                 maxLength={200}
-                defaultValue={item?.title ?? ""}
                 placeholder="e.g. Wireless headphones"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="url">Link (optional)</Label>
-              <Input
-                id="url"
-                name="url"
-                type="url"
-                defaultValue={item?.url ?? ""}
-                placeholder="https://…"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -126,9 +205,9 @@ export function ItemDialog({
                 <Label htmlFor="price">Price (optional)</Label>
                 <Input
                   id="price"
-                  name="price"
                   inputMode="decimal"
-                  defaultValue={dollars}
+                  value={f.price}
+                  onChange={set("price")}
                   placeholder="0.00"
                 />
               </div>
@@ -136,11 +215,11 @@ export function ItemDialog({
                 <Label htmlFor="quantity">Quantity</Label>
                 <Input
                   id="quantity"
-                  name="quantity"
                   type="number"
                   min={1}
                   max={99}
-                  defaultValue={item?.quantity ?? 1}
+                  value={f.quantity}
+                  onChange={set("quantity")}
                 />
               </div>
             </div>
@@ -148,9 +227,9 @@ export function ItemDialog({
               <Label htmlFor="imageUrl">Image URL (optional)</Label>
               <Input
                 id="imageUrl"
-                name="imageUrl"
                 type="url"
-                defaultValue={item?.imageUrl ?? ""}
+                value={f.imageUrl}
+                onChange={set("imageUrl")}
                 placeholder="https://…"
               />
             </div>
@@ -158,10 +237,10 @@ export function ItemDialog({
               <Label htmlFor="description">Notes (optional)</Label>
               <Textarea
                 id="description"
-                name="description"
                 rows={3}
                 maxLength={2000}
-                defaultValue={item?.description ?? ""}
+                value={f.description}
+                onChange={set("description")}
                 placeholder="Color, size, why you'd love it…"
               />
             </div>
@@ -169,12 +248,12 @@ export function ItemDialog({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpen(false)}
+                onClick={() => onOpenChange(false)}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Saving…" : isEdit ? "Save changes" : "Add item"}
+              <Button type="submit" disabled={saving}>
+                {saving ? "Saving…" : isEdit ? "Save changes" : "Add item"}
               </Button>
             </DialogFooter>
           </form>
