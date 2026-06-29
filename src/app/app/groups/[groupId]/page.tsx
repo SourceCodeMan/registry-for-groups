@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronRight } from "lucide-react";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { member, organization, user as users } from "@/db/schema";
@@ -129,11 +130,14 @@ export default async function GroupPage({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Members</CardTitle>
+          <CardDescription>
+            Open a member to see their lists and claim gifts.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col">
-          {members.map((m, i) => (
-            <div key={m.id}>
-              {i > 0 && <Separator />}
+          {members.map((m, i) => {
+            const isMe = m.id === me.id;
+            const row = (
               <div className="flex items-center gap-3 py-3">
                 <Avatar className="size-8">
                   <AvatarFallback className="text-xs">
@@ -143,7 +147,7 @@ export default async function GroupPage({
                 <div className="flex flex-1 flex-col">
                   <span className="text-sm font-medium">
                     {m.name}
-                    {m.id === me.id && (
+                    {isMe && (
                       <span className="text-muted-foreground"> (you)</span>
                     )}
                   </span>
@@ -151,10 +155,30 @@ export default async function GroupPage({
                     {m.email}
                   </span>
                 </div>
-                {isAdminRole(m.role) && <Badge variant="secondary">Admin</Badge>}
+                {isAdminRole(m.role) && (
+                  <Badge variant="secondary">Admin</Badge>
+                )}
+                {!isMe && (
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                )}
               </div>
-            </div>
-          ))}
+            );
+            return (
+              <div key={m.id}>
+                {i > 0 && <Separator />}
+                {isMe ? (
+                  row
+                ) : (
+                  <Link
+                    href={`/app/groups/${groupId}/members/${m.id}`}
+                    className="-mx-2 block rounded-md px-2 hover:bg-muted/50"
+                  >
+                    {row}
+                  </Link>
+                )}
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 
