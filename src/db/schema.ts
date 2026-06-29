@@ -117,6 +117,36 @@ export const claims = pgTable(
   ],
 );
 
+/**
+ * Shareable invite links into a group. We store only a SHA-256 hash of the
+ * token (the raw token lives in the link), so a DB leak never yields usable
+ * invites. Default is single-use (maxUses=1) and role is always `member` — an
+ * admin is promoted only by an existing admin, never via a forwardable link.
+ */
+export const groupInvites = pgTable(
+  "group_invites",
+  {
+    id: id(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    role: text("role").notNull().default("member"),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    maxUses: integer("max_uses").notNull().default(1),
+    uses: integer("uses").notNull().default(0),
+    expiresAt: timestamp("expires_at"),
+    revokedAt: timestamp("revoked_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("group_invites_org_idx").on(t.organizationId),
+    check("group_invites_role_chk", sql`${t.role} = 'member'`),
+  ],
+);
+
 export const listsRelations = relations(lists, ({ one, many }) => ({
   organization: one(organization, {
     fields: [lists.organizationId],

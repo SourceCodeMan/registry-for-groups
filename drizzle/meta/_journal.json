@@ -8,6 +8,13 @@
       "when": 1782747175788,
       "tag": "0000_heavy_dark_beast",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782748000304,
+      "tag": "0001_confused_marten_broadcloak",
+      "breakpoints": true
     }
   ]
 }
