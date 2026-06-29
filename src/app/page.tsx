@@ -47,7 +47,13 @@ export default async function Home() {
       </header>
 
       {/* Hero */}
-      <section className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-6 pt-16 pb-20 text-center sm:pt-24">
+      <section
+        style={{
+          backgroundImage:
+            "radial-gradient(60% 55% at 50% 0%, color-mix(in oklch, var(--primary) 9%, transparent), transparent 70%)",
+        }}
+        className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-6 pt-16 pb-20 text-center sm:pt-24"
+      >
         <span className="rounded-full border bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground">
           Free for your group
         </span>
@@ -80,7 +86,7 @@ export default async function Home() {
         <div className="mx-auto grid w-full max-w-5xl gap-8 px-6 py-16 sm:grid-cols-3">
           {STEPS.map((s, i) => (
             <div key={s.title} className="flex flex-col gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-foreground text-background">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
                 <s.icon className="size-5" />
               </div>
               <h3 className="font-semibold">

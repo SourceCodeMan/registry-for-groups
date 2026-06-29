@@ -39,7 +39,7 @@ export function ClaimButtons({
     return (
       <div className="flex flex-wrap items-center gap-2">
         {mine === "purchased" ? (
-          <Badge className="gap-1 bg-emerald-600 text-white">
+          <Badge className="gap-1 bg-pine text-pine-foreground">
             <Gift className="size-3" /> You&apos;re getting this
           </Badge>
         ) : (
