@@ -4,6 +4,9 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { member, organization, user as users } from "@/db/schema";
 import { requireUser, getMembership, isAdminRole } from "@/lib/session";
+import { getUserListsInGroup } from "@/lib/lists";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -15,6 +18,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { InvitePanel } from "./invite-panel";
+
+const OCCASION_LABEL: Record<string, string> = {
+  birthday: "Birthday",
+  christmas: "Christmas",
+  general: "General",
+  other: "Other",
+};
 
 function initials(name: string) {
   return (
@@ -59,6 +69,7 @@ export default async function GroupPage({
     .where(eq(member.organizationId, groupId));
 
   const admin = isAdminRole(membership.role);
+  const myLists = await getUserListsInGroup(me.id, groupId);
 
   return (
     <div className="flex flex-col gap-8">
@@ -74,6 +85,46 @@ export default async function GroupPage({
           {members.length} {members.length === 1 ? "member" : "members"}
         </p>
       </div>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
+          <div className="flex flex-col gap-1.5">
+            <CardTitle className="text-base">Your lists</CardTitle>
+            <CardDescription>
+              Make a wishlist for {org.name}. Others can claim gifts without you
+              seeing.
+            </CardDescription>
+          </div>
+          <Link
+            href={`/app/groups/${groupId}/lists/new`}
+            className={cn(buttonVariants({ size: "sm" }))}
+          >
+            New list
+          </Link>
+        </CardHeader>
+        <CardContent className="flex flex-col">
+          {myLists.length === 0 ? (
+            <p className="py-2 text-sm text-muted-foreground">
+              You haven&apos;t made a list yet.
+            </p>
+          ) : (
+            myLists.map((l, i) => (
+              <div key={l.id}>
+                {i > 0 && <Separator />}
+                <Link
+                  href={`/app/groups/${groupId}/lists/${l.id}`}
+                  className="flex items-center justify-between gap-2 py-3 hover:opacity-80"
+                >
+                  <span className="text-sm font-medium">{l.title}</span>
+                  <Badge variant="secondary">
+                    {OCCASION_LABEL[l.occasion] ?? "General"}
+                  </Badge>
+                </Link>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
