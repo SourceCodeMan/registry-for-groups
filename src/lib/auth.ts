@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db";
+import { sendEmail, resetPasswordEmail } from "@/lib/email";
 
 /**
  * Better Auth instance.
@@ -23,6 +24,11 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 12,
     autoSignIn: true,
+    resetPasswordTokenExpiresIn: 60 * 60, // 1 hour
+    sendResetPassword: async ({ user, url }) => {
+      const mail = resetPasswordEmail(url);
+      await sendEmail({ to: user.email, ...mail });
+    },
   },
   session: {
     expiresIn: 60 * 60 * 24 * 14, // 14 days

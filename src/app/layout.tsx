@@ -13,10 +13,25 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const description =
+  "Shared gift registries for families and groups — make wishlists, claim gifts, and never spoil a surprise.";
+
 export const metadata: Metadata = {
-  title: "Registry for Groups",
-  description:
-    "Shared gift registries for families and groups — make wishlists, claim gifts, and never spoil a surprise.",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://registryforgroups.com",
+  ),
+  title: {
+    default: "Registry for Groups — gift registries for families & groups",
+    template: "%s · Registry for Groups",
+  },
+  description,
+  openGraph: {
+    title: "Registry for Groups",
+    description,
+    type: "website",
+    siteName: "Registry for Groups",
+  },
+  twitter: { card: "summary_large_image", title: "Registry for Groups", description },
 };
 
 export default function RootLayout({

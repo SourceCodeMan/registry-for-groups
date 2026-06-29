@@ -3,10 +3,15 @@
 import crypto from "crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { db } from "@/db";
+import { organization } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { requireUser, getMembership, isAdminRole } from "@/lib/session";
 import { createInviteForGroup, acceptInviteToken } from "@/lib/invites";
+import { sendEmail, inviteEmail } from "@/lib/email";
+import { rateLimit } from "@/lib/rate-limit";
 
 function slugify(s: string) {
   return (
@@ -67,6 +72,39 @@ export async function createInviteAction(
   const { token } = await createInviteForGroup(organizationId, user.id);
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
   return { url: `${base}/join/${token}` };
+}
+
+export type EmailInviteResult = { ok: boolean; error?: string };
+
+export async function emailInviteAction(
+  organizationId: string,
+  email: string,
+): Promise<EmailInviteResult> {
+  const user = await requireUser();
+  const m = await getMembership(user.id, organizationId);
+  if (!m || !isAdminRole(m.role)) return { ok: false, error: "Only admins can invite." };
+
+  // Don't let the invite endpoint be used as a spam relay.
+  if (!rateLimit(`invite-email:${user.id}`, 15, 60 * 60 * 1000)) {
+    return { ok: false, error: "You've sent a lot of invites — try again later." };
+  }
+
+  const clean = email.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clean)) {
+    return { ok: false, error: "Enter a valid email address." };
+  }
+
+  const [org] = await db
+    .select({ name: organization.name })
+    .from(organization)
+    .where(eq(organization.id, organizationId))
+    .limit(1);
+
+  const { token } = await createInviteForGroup(organizationId, user.id);
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const mail = inviteEmail(org?.name ?? "your group", `${base}/join/${token}`);
+  await sendEmail({ to: clean, ...mail });
+  return { ok: true };
 }
 
 export type AcceptState = { error?: string };
