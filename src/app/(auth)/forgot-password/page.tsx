@@ -1,8 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
+import {
+  Turnstile,
+  captchaEnabled,
+  type TurnstileHandle,
+} from "@/components/turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,17 +24,22 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileHandle>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (captchaEnabled && !captchaToken) return;
     setLoading(true);
     try {
       // Fire-and-forget; we always show the same neutral result so this can't
       // be used to test which emails have accounts.
-      await authClient.requestPasswordReset({
-        email: email.trim(),
-        redirectTo: "/reset-password",
-      });
+      await authClient.requestPasswordReset(
+        { email: email.trim(), redirectTo: "/reset-password" },
+        captchaEnabled && captchaToken
+          ? { headers: { "x-captcha-response": captchaToken } }
+          : undefined,
+      );
     } finally {
       setSent(true);
       setLoading(false);
@@ -56,7 +66,7 @@ export default function ForgotPasswordPage() {
               </CardDescription>
             </CardHeader>
             <form onSubmit={onSubmit}>
-              <CardContent>
+              <CardContent className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -68,9 +78,14 @@ export default function ForgotPasswordPage() {
                     autoComplete="email"
                   />
                 </div>
+                <Turnstile ref={turnstileRef} onToken={setCaptchaToken} />
               </CardContent>
               <CardFooter className="mt-6 flex flex-col gap-3">
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={loading || (captchaEnabled && !captchaToken)}
+                >
                   {loading ? "Sending…" : "Send reset link"}
                 </Button>
                 <Link

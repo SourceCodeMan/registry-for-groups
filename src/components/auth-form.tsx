@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
+import {
+  Turnstile,
+  captchaEnabled,
+  type TurnstileHandle,
+} from "@/components/turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,21 +39,32 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileHandle>(null);
 
   const isSignup = mode === "signup";
+  // Only signup is captcha-gated (login stays friction-free).
+  const needsCaptcha = isSignup && captchaEnabled;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (needsCaptcha && !captchaToken) {
+      toast.error("Please complete the verification.");
+      return;
+    }
     setLoading(true);
     try {
       if (isSignup) {
-        const { error } = await authClient.signUp.email({
-          name: name.trim(),
-          email: email.trim(),
-          password,
-        });
+        const { error } = await authClient.signUp.email(
+          { name: name.trim(), email: email.trim(), password },
+          needsCaptcha && captchaToken
+            ? { headers: { "x-captcha-response": captchaToken } }
+            : undefined,
+        );
         if (error) {
           toast.error(error.message ?? "Could not create your account.");
+          // The token was consumed; get a fresh one for any retry.
+          turnstileRef.current?.reset();
           return;
         }
       } else {
@@ -65,6 +81,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       router.refresh();
     } catch {
       toast.error("Something went wrong. Please try again.");
+      if (needsCaptcha) turnstileRef.current?.reset();
     } finally {
       setLoading(false);
     }
@@ -132,6 +149,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               </p>
             )}
           </div>
+          {isSignup && (
+            <Turnstile ref={turnstileRef} onToken={setCaptchaToken} />
+          )}
         </CardContent>
         <CardFooter className="mt-6 flex flex-col gap-3">
           <Button type="submit" className="w-full" disabled={loading}>
