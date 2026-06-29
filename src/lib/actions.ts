@@ -104,7 +104,7 @@ export async function emailInviteAction(
     .where(eq(organization.id, organizationId))
     .limit(1);
 
-  const { token } = await createInviteForGroup(organizationId, user.id);
+  const { token } = await createInviteForGroup(organizationId, user.id, clean);
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
   const mail = inviteEmail(org?.name ?? "your group", `${base}/join/${token}`);
   await sendEmail({ to: clean, ...mail });

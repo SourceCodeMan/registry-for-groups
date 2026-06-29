@@ -1,41 +1,27 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { getOwnedListWithItems } from "@/lib/lists";
+import { formatDate, OCCASION_LABEL } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { ItemCard } from "@/components/list/item-card";
 import { ItemDialog } from "@/components/list/item-dialog";
 import { ListSettings } from "@/components/list/list-settings";
 
-const OCCASION_LABEL: Record<string, string> = {
-  birthday: "Birthday",
-  christmas: "Christmas",
-  general: "General",
-  other: "Other",
-};
-
-const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
-
-function formatDate(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (!m) return iso;
-  return `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}, ${m[1]}`;
-}
-
-export default async function ListDetailPage({
+export default async function PersonalListPage({
   params,
 }: {
-  params: Promise<{ groupId: string; listId: string }>;
+  params: Promise<{ listId: string }>;
 }) {
-  const { groupId, listId } = await params;
+  const { listId } = await params;
   const user = await requireUser();
 
   const data = await getOwnedListWithItems(user.id, listId);
-  // Owner-only view; uniform 404 otherwise (and verify it's in this group).
-  if (!data || data.list.organizationId !== groupId) notFound();
+  if (!data) notFound();
+  // Grouped lists live under their group route.
+  if (data.list.organizationId !== null) {
+    redirect(`/app/groups/${data.list.organizationId}/lists/${listId}`);
+  }
 
   const { list, items } = data;
 
@@ -43,10 +29,10 @@ export default async function ListDetailPage({
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <Link
-          href={`/app/groups/${groupId}`}
+          href="/app"
           className="text-sm text-muted-foreground hover:text-foreground"
         >
-          ← Back to group
+          ← Back to home
         </Link>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
@@ -72,14 +58,13 @@ export default async function ListDetailPage({
       </div>
 
       <p className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-        🤫 This is your list — you won&apos;t see who&apos;s claimed what, so
-        nothing gets spoiled.
+        📦 This is a personal list — it isn&apos;t shared with any group yet.
       </p>
 
       <div className="flex flex-col gap-3">
         {items.length === 0 ? (
           <div className="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">
-            No items yet. Add the first thing you&apos;d love to receive.
+            No items yet.
           </div>
         ) : (
           items.map((it, i) => (

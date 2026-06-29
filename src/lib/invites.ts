@@ -1,6 +1,6 @@
 import "server-only";
 import crypto from "crypto";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { groupInvites, member, organization } from "@/db/schema";
 import { getMembership } from "@/lib/session";
@@ -25,11 +25,13 @@ function liveInvite(tokenHash: string) {
 export async function createInviteForGroup(
   organizationId: string,
   userId: string,
+  email?: string | null,
 ) {
   const token = crypto.randomBytes(32).toString("base64url");
   await db.insert(groupInvites).values({
     organizationId,
     tokenHash: hashToken(token),
+    email: email ?? null,
     role: "member",
     createdByUserId: userId,
     maxUses: 1,
@@ -37,6 +39,67 @@ export async function createInviteForGroup(
     expiresAt: new Date(Date.now() + INVITE_TTL_MS),
   });
   return { token };
+}
+
+export type PendingInvite = {
+  id: string;
+  email: string;
+  status: "pending" | "accepted" | "expired" | "revoked";
+  createdAt: Date;
+};
+
+/** Email invites for a group with a derived status, for the admin panel. */
+export async function getPendingInvites(
+  organizationId: string,
+): Promise<PendingInvite[]> {
+  const rows = await db
+    .select({
+      id: groupInvites.id,
+      email: groupInvites.email,
+      uses: groupInvites.uses,
+      maxUses: groupInvites.maxUses,
+      expiresAt: groupInvites.expiresAt,
+      revokedAt: groupInvites.revokedAt,
+      createdAt: groupInvites.createdAt,
+    })
+    .from(groupInvites)
+    .where(
+      and(
+        eq(groupInvites.organizationId, organizationId),
+        isNotNull(groupInvites.email),
+      ),
+    )
+    .orderBy(desc(groupInvites.createdAt));
+
+  const now = Date.now();
+  return rows.map((r) => ({
+    id: r.id,
+    email: r.email!,
+    createdAt: r.createdAt,
+    status: r.revokedAt
+      ? "revoked"
+      : r.uses >= r.maxUses
+        ? "accepted"
+        : r.expiresAt && r.expiresAt.getTime() < now
+          ? "expired"
+          : "pending",
+  }));
+}
+
+/** Revoke an invite (scoped to its group). */
+export async function revokeInviteById(
+  inviteId: string,
+  organizationId: string,
+) {
+  await db
+    .update(groupInvites)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(
+        eq(groupInvites.id, inviteId),
+        eq(groupInvites.organizationId, organizationId),
+      ),
+    );
 }
 
 /** Non-consuming peek used by the /join landing page. Reveals only the group name. */

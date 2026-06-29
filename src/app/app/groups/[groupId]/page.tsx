@@ -1,11 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronRight } from "lucide-react";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { member, organization, user as users } from "@/db/schema";
 import { requireUser, getMembership, isAdminRole } from "@/lib/session";
 import { getUserListsInGroup } from "@/lib/lists";
+import { getPendingInvites } from "@/lib/invites";
+import { getPendingJoinRequests } from "@/lib/groups";
+import { formatDate } from "@/lib/format";
+import {
+  RemoveMemberButton,
+  RevokeInviteButton,
+  JoinRequestActions,
+} from "./admin-controls";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -36,6 +43,17 @@ function initials(name: string) {
       .slice(0, 2)
       .join("")
       .toUpperCase() || "?"
+  );
+}
+
+function InviteStatusBadge({ status }: { status: string }) {
+  if (status === "accepted")
+    return <Badge className="bg-pine text-pine-foreground">Joined</Badge>;
+  if (status === "pending") return <Badge variant="secondary">Pending</Badge>;
+  return (
+    <Badge variant="outline" className="capitalize text-muted-foreground">
+      {status}
+    </Badge>
   );
 }
 
@@ -71,6 +89,8 @@ export default async function GroupPage({
 
   const admin = isAdminRole(membership.role);
   const myLists = await getUserListsInGroup(me.id, groupId);
+  const joinRequests = admin ? await getPendingJoinRequests(groupId) : [];
+  const pendingInvites = admin ? await getPendingInvites(groupId) : [];
 
   return (
     <div className="flex flex-col gap-8">
@@ -137,61 +157,134 @@ export default async function GroupPage({
         <CardContent className="flex flex-col">
           {members.map((m, i) => {
             const isMe = m.id === me.id;
-            const row = (
-              <div className="flex items-center gap-3 py-3">
+            const identity = (
+              <>
                 <Avatar className="size-8">
                   <AvatarFallback className="text-xs">
                     {initials(m.name)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex flex-1 flex-col">
-                  <span className="text-sm font-medium">
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm font-medium">
                     {m.name}
                     {isMe && (
                       <span className="text-muted-foreground"> (you)</span>
                     )}
                   </span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="truncate text-xs text-muted-foreground">
                     {m.email}
                   </span>
                 </div>
-                {isAdminRole(m.role) && (
-                  <Badge variant="secondary">Admin</Badge>
-                )}
-                {!isMe && (
-                  <ChevronRight className="size-4 text-muted-foreground" />
-                )}
-              </div>
+              </>
             );
             return (
               <div key={m.id}>
                 {i > 0 && <Separator />}
-                {isMe ? (
-                  row
-                ) : (
-                  <Link
-                    href={`/app/groups/${groupId}/members/${m.id}`}
-                    className="-mx-2 block rounded-md px-2 hover:bg-muted/50"
-                  >
-                    {row}
-                  </Link>
-                )}
+                <div className="flex items-center gap-2 py-3">
+                  {isMe ? (
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      {identity}
+                    </div>
+                  ) : (
+                    <Link
+                      href={`/app/groups/${groupId}/members/${m.id}`}
+                      className="-mx-2 flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-1 hover:bg-muted/50"
+                    >
+                      {identity}
+                    </Link>
+                  )}
+                  {isAdminRole(m.role) && (
+                    <Badge variant="secondary">Admin</Badge>
+                  )}
+                  {admin && !isMe && (
+                    <RemoveMemberButton
+                      groupId={groupId}
+                      userId={m.id}
+                      name={m.name}
+                    />
+                  )}
+                </div>
               </div>
             );
           })}
         </CardContent>
       </Card>
 
+      {admin && joinRequests.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Requests to join</CardTitle>
+            <CardDescription>
+              People who found {org.name} and asked to join.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col">
+            {joinRequests.map((r, i) => (
+              <div key={r.id}>
+                {i > 0 && <Separator />}
+                <div className="flex items-center gap-3 py-3">
+                  <Avatar className="size-8">
+                    <AvatarFallback className="text-xs">
+                      {initials(r.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-sm font-medium">
+                      {r.name}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {r.email}
+                    </span>
+                  </div>
+                  <JoinRequestActions requestId={r.id} />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {admin && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Invite people</CardTitle>
             <CardDescription>
-              Share a link to add someone to {org.name}.
+              Share a link or send an email invite to {org.name}.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <InvitePanel groupId={groupId} />
+          </CardContent>
+        </Card>
+      )}
+
+      {admin && pendingInvites.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Email invites</CardTitle>
+            <CardDescription>Invites you&apos;ve sent by email.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col">
+            {pendingInvites.map((inv, i) => (
+              <div key={inv.id}>
+                {i > 0 && <Separator />}
+                <div className="flex items-center gap-2 py-3">
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-sm font-medium">
+                      {inv.email}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Sent{" "}
+                      {formatDate(inv.createdAt.toISOString().slice(0, 10))}
+                    </span>
+                  </div>
+                  <InviteStatusBadge status={inv.status} />
+                  {inv.status === "pending" && (
+                    <RevokeInviteButton inviteId={inv.id} />
+                  )}
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}

@@ -124,7 +124,7 @@ export async function deleteListAction(listId: string): Promise<void> {
   const list = await requireOwnedList(user.id, listId);
   if (!list) redirect("/app");
   await db.delete(lists).where(eq(lists.id, listId));
-  redirect(`/app/groups/${list!.organizationId}`);
+  redirect(list!.organizationId ? `/app/groups/${list!.organizationId}` : "/app");
 }
 
 /* ------------------------------- items -------------------------------- */

@@ -29,9 +29,11 @@ export const lists = pgTable(
   "lists",
   {
     id: id(),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    // Nullable: a list with no org is a "personal" list (e.g. after the owner
+    // is removed from a group) — visible only to the owner.
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
     ownerUserId: text("owner_user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
@@ -131,6 +133,7 @@ export const groupInvites = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     tokenHash: text("token_hash").notNull().unique(),
+    email: text("email"),
     role: text("role").notNull().default("member"),
     createdByUserId: text("created_by_user_id")
       .notNull()
@@ -144,6 +147,38 @@ export const groupInvites = pgTable(
   (t) => [
     index("group_invites_org_idx").on(t.organizationId),
     check("group_invites_role_chk", sql`${t.role} = 'member'`),
+  ],
+);
+
+/**
+ * A request to join a group (search-and-join). An admin approves/denies; only
+ * an approval creates a membership, so a stranger who finds the group name
+ * can't see anyone's lists.
+ */
+export const joinRequests = pgTable(
+  "join_requests",
+  {
+    id: id(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("pending"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    decidedAt: timestamp("decided_at"),
+    decidedByUserId: text("decided_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [
+    index("join_requests_org_idx").on(t.organizationId),
+    uniqueIndex("join_requests_org_user_uidx").on(t.organizationId, t.userId),
+    check(
+      "join_requests_status_chk",
+      sql`${t.status} in ('pending','approved','denied')`,
+    ),
   ],
 );
 

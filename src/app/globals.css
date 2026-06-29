@@ -130,6 +130,31 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Subtle "wrapping paper" confetti — cranberry, pine & gold dots. */
+    background-image:
+      radial-gradient(
+        circle,
+        color-mix(in oklch, #b23a48 9%, transparent) 0 1.8px,
+        transparent 2.4px
+      ),
+      radial-gradient(
+        circle,
+        color-mix(in oklch, #2e5e4e 8%, transparent) 0 1.8px,
+        transparent 2.4px
+      ),
+      radial-gradient(
+        circle,
+        color-mix(in oklch, #d99a4e 9%, transparent) 0 1.4px,
+        transparent 2px
+      );
+    background-size:
+      52px 52px,
+      52px 52px,
+      52px 52px;
+    background-position:
+      0 0,
+      26px 26px,
+      13px 39px;
   }
   html {
     @apply font-sans;

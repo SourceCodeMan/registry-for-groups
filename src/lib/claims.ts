@@ -166,6 +166,8 @@ export async function requireClaimableItem(viewerId: string, itemId: string) {
     .limit(1);
   if (!row) return null;
   if (row.list.ownerUserId === viewerId) return null;
+  // Personal (ungrouped) lists aren't browsable, so nothing on them is claimable.
+  if (row.list.organizationId === null) return null;
   const membership = await getMembership(viewerId, row.list.organizationId);
   if (!membership) return null;
   return row;
