@@ -52,7 +52,7 @@ export default async function Home() {
           Free for your group
         </span>
         <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">
-          Gift registries for the people you love.
+          Gift registries for humans.
         </h1>
         <p className="max-w-xl text-balance text-lg text-muted-foreground">
           Everyone makes their wishlists. The group claims gifts so nothing gets

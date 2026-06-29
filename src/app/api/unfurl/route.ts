@@ -2,35 +2,19 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { unfurl } from "@/lib/unfurl";
+import { unfurlLimiter } from "@/lib/ratelimit";
 
 // dns + undici need the Node runtime, not edge.
 export const runtime = "nodejs";
-
-// Lightweight per-user limiter. In-memory (per server instance) — fine at our
-// scale; swap to a shared store (Upstash) if this ever runs hot across many
-// instances.
-const WINDOW_MS = 60_000;
-const MAX_PER_WINDOW = 20;
-const hits = new Map<string, number[]>();
-
-function allow(userId: string): boolean {
-  const now = Date.now();
-  const recent = (hits.get(userId) ?? []).filter((t) => now - t < WINDOW_MS);
-  if (recent.length >= MAX_PER_WINDOW) {
-    hits.set(userId, recent);
-    return false;
-  }
-  recent.push(now);
-  hits.set(userId, recent);
-  return true;
-}
 
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!allow(session.user.id)) {
+
+  const { success } = await unfurlLimiter.limit(session.user.id);
+  if (!success) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 

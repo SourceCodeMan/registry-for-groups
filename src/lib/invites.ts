@@ -1,25 +1,9 @@
 import "server-only";
 import crypto from "crypto";
-import { and, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { groupInvites, member, organization } from "@/db/schema";
 import { getMembership } from "@/lib/session";
-
-/** How many invites this user has minted recently — a DB-backed (so it holds
- * across serverless instances) anti-abuse counter for invite creation. */
-export async function recentInviteCount(userId: string, sinceMs: number) {
-  const since = new Date(Date.now() - sinceMs);
-  const [row] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(groupInvites)
-    .where(
-      and(
-        eq(groupInvites.createdByUserId, userId),
-        gt(groupInvites.createdAt, since),
-      ),
-    );
-  return row?.n ?? 0;
-}
 
 const INVITE_TTL_MS = 72 * 60 * 60 * 1000; // 72h
 

@@ -9,16 +9,9 @@ import { db } from "@/db";
 import { organization } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { requireUser, getMembership, isAdminRole } from "@/lib/session";
-import {
-  createInviteForGroup,
-  acceptInviteToken,
-  recentInviteCount,
-} from "@/lib/invites";
+import { createInviteForGroup, acceptInviteToken } from "@/lib/invites";
 import { sendEmail, inviteEmail } from "@/lib/email";
-
-// Per-account cap on invite minting (covers both copy-link and email invites).
-// DB-backed via recentInviteCount, so it holds across serverless instances.
-const INVITE_CAP_PER_HOUR = 20;
+import { inviteLimiter } from "@/lib/ratelimit";
 
 function slugify(s: string) {
   return (
@@ -76,7 +69,7 @@ export async function createInviteAction(
   const m = await getMembership(user.id, organizationId);
   if (!m || !isAdminRole(m.role)) return { error: "Only admins can invite." };
 
-  if ((await recentInviteCount(user.id, 60 * 60 * 1000)) >= INVITE_CAP_PER_HOUR) {
+  if (!(await inviteLimiter.limit(user.id)).success) {
     return { error: "You've created a lot of invites — try again later." };
   }
 
@@ -95,8 +88,8 @@ export async function emailInviteAction(
   const m = await getMembership(user.id, organizationId);
   if (!m || !isAdminRole(m.role)) return { ok: false, error: "Only admins can invite." };
 
-  // Don't let the invite endpoint be used as a spam relay (DB-backed cap).
-  if ((await recentInviteCount(user.id, 60 * 60 * 1000)) >= INVITE_CAP_PER_HOUR) {
+  // Don't let the invite endpoint be used as a spam relay.
+  if (!(await inviteLimiter.limit(user.id)).success) {
     return { ok: false, error: "You've sent a lot of invites — try again later." };
   }
 
