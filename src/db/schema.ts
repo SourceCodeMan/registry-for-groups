@@ -39,6 +39,13 @@ export const lists = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     occasion: text("occasion").notNull().default("general"),
+    // 'wishlist' (default): the owner lists what THEY want; others secretly
+    // claim. 'pick': the owner offers a fixed set of options and group members
+    // each choose one (or up to maxPicksPerMember) — and the owner DOES see who
+    // picked what, so they can fulfill it. The two kinds never share claim/pick
+    // data paths.
+    kind: text("kind").notNull().default("wishlist"),
+    maxPicksPerMember: integer("max_picks_per_member").notNull().default(1),
     eventDate: date("event_date"),
     archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -54,6 +61,7 @@ export const lists = pgTable(
       "lists_occasion_chk",
       sql`${t.occasion} in ('birthday','christmas','general','other')`,
     ),
+    check("lists_kind_chk", sql`${t.kind} in ('wishlist','pick')`),
   ],
 );
 
@@ -116,6 +124,35 @@ export const claims = pgTable(
     index("claims_item_idx").on(t.itemId),
     uniqueIndex("claims_item_buyer_uidx").on(t.itemId, t.buyerUserId),
     check("claims_state_chk", sql`${t.state} in ('reserved','purchased')`),
+  ],
+);
+
+/**
+ * A member's selection on a `kind = 'pick'` list. UNLIKE `claims`, this is NOT
+ * secret — the list's owner is meant to see who picked what so they can fulfill
+ * it. One row per (item, picker); a member may hold up to the list's
+ * `maxPicksPerMember` rows across the list. Kept entirely separate from the
+ * `claims` secrecy engine so the two can never cross-contaminate.
+ */
+export const picks = pgTable(
+  "picks",
+  {
+    id: id(),
+    listId: text("list_id")
+      .notNull()
+      .references(() => lists.id, { onDelete: "cascade" }),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    pickerUserId: text("picker_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("picks_list_idx").on(t.listId),
+    index("picks_item_idx").on(t.itemId),
+    uniqueIndex("picks_item_picker_uidx").on(t.itemId, t.pickerUserId),
   ],
 );
 
@@ -197,9 +234,16 @@ export const listsRelations = relations(lists, ({ one, many }) => ({
 export const itemsRelations = relations(items, ({ one, many }) => ({
   list: one(lists, { fields: [items.listId], references: [lists.id] }),
   claims: many(claims),
+  picks: many(picks),
 }));
 
 export const claimsRelations = relations(claims, ({ one }) => ({
   item: one(items, { fields: [claims.itemId], references: [items.id] }),
   buyer: one(user, { fields: [claims.buyerUserId], references: [user.id] }),
+}));
+
+export const picksRelations = relations(picks, ({ one }) => ({
+  list: one(lists, { fields: [picks.listId], references: [lists.id] }),
+  item: one(items, { fields: [picks.itemId], references: [items.id] }),
+  picker: one(user, { fields: [picks.pickerUserId], references: [user.id] }),
 }));

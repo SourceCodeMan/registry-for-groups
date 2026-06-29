@@ -164,6 +164,16 @@ export async function createItemAction(
   const v = validateItem(data);
   if ("error" in v) return { ok: false, error: v.error };
 
+  // A pick list is capped at 10 options.
+  if (list.kind === "pick") {
+    const [{ n } = { n: 0 }] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(items)
+      .where(eq(items.listId, listId));
+    if ((n ?? 0) >= 10)
+      return { ok: false, error: "A pick list can have at most 10 options." };
+  }
+
   // Append to the end.
   const [{ max } = { max: 0 }] = await db
     .select({ max: sql<number>`coalesce(max(${items.sortOrder}), 0)` })

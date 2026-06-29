@@ -46,6 +46,7 @@ export function ItemDialog({
   triggerVariant = "default",
   triggerSize = "default",
   triggerClassName,
+  mode = "item",
 }: {
   listId: string;
   item?: ItemData;
@@ -53,6 +54,8 @@ export function ItemDialog({
   triggerVariant?: "default" | "outline" | "secondary" | "ghost";
   triggerSize?: "default" | "sm" | "lg" | "icon" | "icon-sm";
   triggerClassName?: string;
+  /** "option" tweaks copy + hides Quantity for pick-list choices. */
+  mode?: "item" | "option";
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -60,6 +63,8 @@ export function ItemDialog({
   const [fetching, setFetching] = useState(false);
   const [f, setF] = useState(() => emptyFields(item));
   const isEdit = !!item;
+  const isOption = mode === "option";
+  const noun = isOption ? "option" : "item";
 
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setF((prev) => ({ ...prev, [k]: e.target.value }));
@@ -162,12 +167,16 @@ export function ItemDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{isEdit ? "Edit item" : "Add an item"}</DialogTitle>
+            <DialogTitle>
+              {isEdit ? `Edit ${noun}` : `Add ${isOption ? "an option" : "an item"}`}
+            </DialogTitle>
             <DialogDescription>
-              Paste a link and let us fill in the details, or type them in.
+              {isOption
+                ? "An option people can choose from. Paste a link to autofill, or type it in."
+                : "Paste a link and let us fill in the details, or type them in."}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          <form onSubmit={onSubmit} className="flex min-w-0 flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="url">Link (optional)</Label>
               <div className="flex gap-2">
@@ -197,10 +206,10 @@ export function ItemDialog({
                 onChange={set("title")}
                 required
                 maxLength={200}
-                placeholder="e.g. Wireless headphones"
+                placeholder={isOption ? "e.g. Hoodie" : "e.g. Wireless headphones"}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            {isOption ? (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="price">Price (optional)</Label>
                 <Input
@@ -211,18 +220,31 @@ export function ItemDialog({
                   placeholder="0.00"
                 />
               </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="quantity">Quantity</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  min={1}
-                  max={99}
-                  value={f.quantity}
-                  onChange={set("quantity")}
-                />
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="price">Price (optional)</Label>
+                  <Input
+                    id="price"
+                    inputMode="decimal"
+                    value={f.price}
+                    onChange={set("price")}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="quantity">Quantity</Label>
+                  <Input
+                    id="quantity"
+                    type="number"
+                    min={1}
+                    max={99}
+                    value={f.quantity}
+                    onChange={set("quantity")}
+                  />
+                </div>
               </div>
-            </div>
+            )}
             <div className="flex flex-col gap-2">
               <Label htmlFor="imageUrl">Image URL (optional)</Label>
               <Input
@@ -253,7 +275,13 @@ export function ItemDialog({
                 Cancel
               </Button>
               <Button type="submit" disabled={saving}>
-                {saving ? "Saving…" : isEdit ? "Save changes" : "Add item"}
+                {saving
+                  ? "Saving…"
+                  : isEdit
+                    ? "Save changes"
+                    : isOption
+                      ? "Add option"
+                      : "Add item"}
               </Button>
             </DialogFooter>
           </form>

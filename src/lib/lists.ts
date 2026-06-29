@@ -7,7 +7,8 @@ import { getMembership } from "@/lib/session";
 export type ListRow = typeof lists.$inferSelect;
 export type ItemRow = typeof items.$inferSelect;
 
-/** All of a user's own lists in a group (newest activity first). */
+/** A user's own WISHLISTS in a group (newest activity first). Pick lists are
+ *  a different beast and live in their own section, so they're excluded here. */
 export async function getUserListsInGroup(
   userId: string,
   organizationId: string,
@@ -19,17 +20,25 @@ export async function getUserListsInGroup(
       and(
         eq(lists.ownerUserId, userId),
         eq(lists.organizationId, organizationId),
+        eq(lists.kind, "wishlist"),
       ),
     )
     .orderBy(asc(lists.createdAt));
 }
 
-/** A user's personal (ungrouped) lists — kept after being removed from a group. */
+/** A user's personal (ungrouped) wishlists — kept after being removed from a
+ *  group. (Pick lists require a group, so this is wishlists by nature.) */
 export async function getUserPersonalLists(userId: string) {
   return db
     .select()
     .from(lists)
-    .where(and(eq(lists.ownerUserId, userId), isNull(lists.organizationId)))
+    .where(
+      and(
+        eq(lists.ownerUserId, userId),
+        isNull(lists.organizationId),
+        eq(lists.kind, "wishlist"),
+      ),
+    )
     .orderBy(asc(lists.createdAt));
 }
 

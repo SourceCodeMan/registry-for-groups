@@ -65,6 +65,8 @@ export async function getMemberListsForViewer(
       and(
         eq(lists.organizationId, organizationId),
         eq(lists.ownerUserId, ownerUserId),
+        // Only wishlists are browsable/claimable here; pick lists are separate.
+        eq(lists.kind, "wishlist"),
       ),
     )
     .orderBy(asc(lists.createdAt));
@@ -168,6 +170,8 @@ export async function requireClaimableItem(viewerId: string, itemId: string) {
   if (row.list.ownerUserId === viewerId) return null;
   // Personal (ungrouped) lists aren't browsable, so nothing on them is claimable.
   if (row.list.organizationId === null) return null;
+  // Pick-list options are chosen, never claimed — keep the two flows disjoint.
+  if (row.list.kind !== "wishlist") return null;
   const membership = await getMembership(viewerId, row.list.organizationId);
   if (!membership) return null;
   return row;

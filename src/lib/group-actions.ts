@@ -11,6 +11,7 @@ import {
   lists,
   member,
   organization,
+  picks,
 } from "@/db/schema";
 import { requireUser, getMembership, isAdminRole } from "@/lib/session";
 import { revokeInviteById } from "@/lib/invites";
@@ -101,7 +102,38 @@ export async function removeMemberAction(
         ),
       );
     }
-    // Keep their lists — detach them from the group (become personal).
+    // Remove the member's own picks on this group's pick lists (their
+    // selections) so they don't linger in anyone's results.
+    const pickRows = await tx
+      .select({ id: picks.id })
+      .from(picks)
+      .innerJoin(lists, eq(picks.listId, lists.id))
+      .where(
+        and(
+          eq(picks.pickerUserId, targetUserId),
+          eq(lists.organizationId, organizationId),
+        ),
+      );
+    if (pickRows.length) {
+      await tx.delete(picks).where(
+        inArray(
+          picks.id,
+          pickRows.map((p) => p.id),
+        ),
+      );
+    }
+    // A pick list can't function without its group, so delete any the member
+    // owns here (cascades their options + everyone's picks on them)...
+    await tx
+      .delete(lists)
+      .where(
+        and(
+          eq(lists.ownerUserId, targetUserId),
+          eq(lists.organizationId, organizationId),
+          eq(lists.kind, "pick"),
+        ),
+      );
+    // ...but keep their WISHLISTS — detach them to personal.
     await tx
       .update(lists)
       .set({ organizationId: null })
@@ -109,6 +141,7 @@ export async function removeMemberAction(
         and(
           eq(lists.ownerUserId, targetUserId),
           eq(lists.organizationId, organizationId),
+          eq(lists.kind, "wishlist"),
         ),
       );
     // Tidy any join-request history for this user/group.

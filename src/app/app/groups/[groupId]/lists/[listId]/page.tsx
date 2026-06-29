@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { getOwnedListWithItems } from "@/lib/lists";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,10 @@ export default async function ListDetailPage({
   const data = await getOwnedListWithItems(user.id, listId);
   // Owner-only view; uniform 404 otherwise (and verify it's in this group).
   if (!data || data.list.organizationId !== groupId) notFound();
+  // Pick lists have their own (non-secret) view.
+  if (data.list.kind === "pick") {
+    redirect(`/app/groups/${groupId}/picks/${listId}`);
+  }
 
   const { list, items } = data;
 

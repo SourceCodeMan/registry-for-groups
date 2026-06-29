@@ -18,6 +18,8 @@ export default async function PersonalListPage({
 
   const data = await getOwnedListWithItems(user.id, listId);
   if (!data) notFound();
+  // Pick lists always belong to a group; never reachable here.
+  if (data.list.kind !== "wishlist") notFound();
   // Grouped lists live under their group route.
   if (data.list.organizationId !== null) {
     redirect(`/app/groups/${data.list.organizationId}/lists/${listId}`);

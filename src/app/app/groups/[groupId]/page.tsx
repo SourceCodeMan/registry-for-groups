@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { member, organization, user as users } from "@/db/schema";
 import { requireUser, getMembership, isAdminRole } from "@/lib/session";
 import { getUserListsInGroup } from "@/lib/lists";
+import { getGroupPickLists } from "@/lib/picks";
 import { getPendingInvites } from "@/lib/invites";
 import { getPendingJoinRequests } from "@/lib/groups";
 import { formatDate } from "@/lib/format";
@@ -89,6 +90,7 @@ export default async function GroupPage({
 
   const admin = isAdminRole(membership.role);
   const myLists = await getUserListsInGroup(me.id, groupId);
+  const pickLists = await getGroupPickLists(groupId);
   const joinRequests = admin ? await getPendingJoinRequests(groupId) : [];
   const pendingInvites = admin ? await getPendingInvites(groupId) : [];
 
@@ -140,6 +142,57 @@ export default async function GroupPage({
                   <Badge variant="secondary">
                     {OCCASION_LABEL[l.occasion] ?? "General"}
                   </Badge>
+                </Link>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
+          <div className="flex flex-col gap-1.5">
+            <CardTitle className="text-base">Pick lists</CardTitle>
+            <CardDescription>
+              Offer a set of options and let everyone choose. You see who picked
+              what.
+            </CardDescription>
+          </div>
+          <Link
+            href={`/app/groups/${groupId}/picks/new`}
+            className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
+          >
+            New pick list
+          </Link>
+        </CardHeader>
+        <CardContent className="flex flex-col">
+          {pickLists.length === 0 ? (
+            <p className="py-2 text-sm text-muted-foreground">
+              No pick lists yet.
+            </p>
+          ) : (
+            pickLists.map((p, i) => (
+              <div key={p.id}>
+                {i > 0 && <Separator />}
+                <Link
+                  href={`/app/groups/${groupId}/picks/${p.id}`}
+                  className="flex items-center justify-between gap-2 py-3 hover:opacity-80"
+                >
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm font-medium">
+                      {p.title}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {p.creatorUserId === me.id ? "Yours" : `by ${p.creatorName}`}
+                      {" · "}
+                      {p.optionCount} {p.optionCount === 1 ? "option" : "options"}
+                    </span>
+                  </div>
+                  {p.pickerCount > 0 && (
+                    <Badge variant="secondary">
+                      {p.pickerCount} chosen
+                    </Badge>
+                  )}
                 </Link>
               </div>
             ))

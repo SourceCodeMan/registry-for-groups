@@ -18,11 +18,13 @@ export function ItemCard({
   item,
   isFirst,
   isLast,
+  mode = "item",
 }: {
   listId: string;
   item: ItemData;
   isFirst: boolean;
   isLast: boolean;
+  mode?: "item" | "option";
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -63,13 +65,17 @@ export function ItemCard({
       )}
 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{item.title}</span>
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className="min-w-0 font-medium [overflow-wrap:anywhere]">
+            {item.title}
+          </span>
           {price && (
-            <span className="text-sm text-muted-foreground">{price}</span>
+            <span className="shrink-0 text-sm text-muted-foreground">
+              {price}
+            </span>
           )}
           {item.quantity > 1 && (
-            <span className="text-xs text-muted-foreground">
+            <span className="shrink-0 text-xs text-muted-foreground">
               ×{item.quantity}
             </span>
           )}
@@ -119,6 +125,7 @@ export function ItemCard({
             triggerLabel="Edit"
             triggerVariant="ghost"
             triggerSize="sm"
+            mode={mode}
           />
           <Button
             variant="ghost"
