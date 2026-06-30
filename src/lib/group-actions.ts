@@ -195,6 +195,32 @@ export async function removeMemberAction(
   return { ok: true };
 }
 
+/* ---------------------------- promote member ------------------------- */
+
+export async function promoteMemberAction(
+  organizationId: string,
+  targetUserId: string,
+): Promise<ActionResult> {
+  const user = await requireUser();
+  if (!(await requireAdmin(user.id, organizationId)))
+    return { ok: false, error: "Only admins can promote members." };
+
+  const target = await getMembership(targetUserId, organizationId);
+  if (!target) return { ok: false, error: "They're not in this group." };
+  if (isAdminRole(target.role)) return { ok: true }; // already an admin
+
+  await db
+    .update(member)
+    .set({ role: "admin" })
+    .where(
+      and(
+        eq(member.organizationId, organizationId),
+        eq(member.userId, targetUserId),
+      ),
+    );
+  return { ok: true };
+}
+
 /* ---------------------------- join requests -------------------------- */
 
 export async function requestJoinAction(

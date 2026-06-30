@@ -24,7 +24,15 @@ function initials(name: string) {
   );
 }
 
-export function UserMenu({ name, email }: { name: string; email: string }) {
+export function UserMenu({
+  name,
+  email,
+  isSuperAdmin = false,
+}: {
+  name: string;
+  email: string;
+  isSuperAdmin?: boolean;
+}) {
   const router = useRouter();
 
   async function signOut() {
@@ -48,6 +56,15 @@ export function UserMenu({ name, email }: { name: string; email: string }) {
           <span className="text-sm font-medium">{name}</span>
           <span className="text-xs text-muted-foreground">{email}</span>
         </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => router.push("/app/account")}>
+          Account settings
+        </DropdownMenuItem>
+        {isSuperAdmin && (
+          <DropdownMenuItem onClick={() => router.push("/app/admin")}>
+            Admin dashboard
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={signOut}>Sign out</DropdownMenuItem>
       </DropdownMenuContent>

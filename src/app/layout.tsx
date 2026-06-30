@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { PageView } from "@/components/page-view";
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -53,6 +54,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
+        <PageView />
         <Toaster richColors position="top-center" />
       </body>
     </html>

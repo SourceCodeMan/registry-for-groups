@@ -219,6 +219,16 @@ export const joinRequests = pgTable(
   ],
 );
 
+/**
+ * A privacy-light daily visit counter — one row per day, just a tally. No PII,
+ * no per-user tracking; fed by a client beacon and read on the owner's
+ * analytics page.
+ */
+export const pageViews = pgTable("page_views", {
+  day: date("day").primaryKey(),
+  views: integer("views").notNull().default(0),
+});
+
 export const listsRelations = relations(lists, ({ one, many }) => ({
   organization: one(organization, {
     fields: [lists.organizationId],

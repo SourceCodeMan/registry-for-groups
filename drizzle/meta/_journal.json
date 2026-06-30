@@ -29,6 +29,13 @@
       "when": 1782768822033,
       "tag": "0003_pick_lists",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782816397149,
+      "tag": "0004_page_views",
+      "breakpoints": true
     }
   ]
 }

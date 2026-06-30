@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/session";
+import { isSuperAdmin } from "@/lib/admin";
 import { UserMenu } from "@/components/user-menu";
 
 export default async function AppLayout({
@@ -24,7 +25,11 @@ export default async function AppLayout({
               Gifts I&apos;m giving
             </Link>
           </div>
-          <UserMenu name={user.name} email={user.email} />
+          <UserMenu
+            name={user.name}
+            email={user.email}
+            isSuperAdmin={isSuperAdmin(user)}
+          />
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">

@@ -11,6 +11,7 @@ import { getPendingJoinRequests } from "@/lib/groups";
 import { formatDate } from "@/lib/format";
 import {
   RemoveMemberButton,
+  PromoteMemberButton,
   RevokeInviteButton,
   JoinRequestActions,
 } from "./admin-controls";
@@ -251,6 +252,13 @@ export default async function GroupPage({
                   )}
                   {isAdminRole(m.role) && (
                     <Badge variant="secondary">Admin</Badge>
+                  )}
+                  {admin && !isMe && !isAdminRole(m.role) && (
+                    <PromoteMemberButton
+                      groupId={groupId}
+                      userId={m.id}
+                      name={m.name}
+                    />
                   )}
                   {admin && !isMe && (
                     <RemoveMemberButton

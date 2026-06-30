@@ -4,6 +4,7 @@ import { captcha, organization } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db";
 import { sendEmail, resetPasswordEmail } from "@/lib/email";
+import { prepareAccountDeletion } from "@/lib/account";
 
 // Cloudflare Turnstile guards the two abuse-prone, unauthenticated endpoints
 // (account creation and reset-email requests). It's only wired in when the
@@ -38,6 +39,16 @@ export const auth = betterAuth({
     sendResetPassword: async ({ user, url }) => {
       const mail = resetPasswordEmail(url);
       await sendEmail({ to: user.email, ...mail });
+    },
+  },
+  user: {
+    deleteUser: {
+      enabled: true,
+      // Re-confirm with the password at the call site. Before the row is
+      // removed, run domain cleanup / sole-admin guard.
+      beforeDelete: async (user) => {
+        await prepareAccountDeletion(user.id);
+      },
     },
   },
   session: {

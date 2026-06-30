@@ -3,9 +3,10 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, UserMinus } from "lucide-react";
+import { Check, ShieldPlus, UserMinus } from "lucide-react";
 import {
   removeMemberAction,
+  promoteMemberAction,
   revokeInviteAction,
   approveJoinRequestAction,
   denyJoinRequestAction,
@@ -52,6 +53,34 @@ export function RemoveMemberButton({
       }}
     >
       <UserMinus className="size-4 text-destructive" />
+    </Button>
+  );
+}
+
+export function PromoteMemberButton({
+  groupId,
+  userId,
+  name,
+}: {
+  groupId: string;
+  userId: string;
+  name: string;
+}) {
+  const { pending, run } = useRun();
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      disabled={pending}
+      aria-label={`Make ${name} an admin`}
+      title={`Make ${name} an admin`}
+      onClick={() => {
+        if (confirm(`Make ${name} an admin of this group?`)) {
+          run(() => promoteMemberAction(groupId, userId));
+        }
+      }}
+    >
+      <ShieldPlus className="size-4" />
     </Button>
   );
 }
