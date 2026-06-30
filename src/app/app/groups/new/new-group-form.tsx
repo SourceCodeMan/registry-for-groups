@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createGroupAction, type GroupFormState } from "@/lib/actions";
+import { normalizeSlug } from "@/lib/slug";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,8 +17,14 @@ import {
 
 const initial: GroupFormState = {};
 
+const APP_HOST =
+  (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/^https?:\/\//, "") ||
+  "registryforgroups.com";
+
 export function NewGroupForm() {
   const [state, action, pending] = useActionState(createGroupAction, initial);
+  const [slug, setSlug] = useState("");
+  const preview = normalizeSlug(slug);
 
   return (
     <Card>
@@ -52,6 +59,22 @@ export function NewGroupForm() {
               <option value="office">Office / coworkers</option>
               <option value="other">Other</option>
             </select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="slug">Custom link (optional)</Label>
+            <Input
+              id="slug"
+              name="slug"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              maxLength={32}
+              placeholder="chapman-family"
+            />
+            <p className="text-xs text-muted-foreground">
+              {preview
+                ? `${APP_HOST}/${preview}`
+                : "Leave blank and we'll make one for you. You can change it later."}
+            </p>
           </div>
           {state.error && (
             <p className="text-sm text-destructive">{state.error}</p>

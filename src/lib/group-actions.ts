@@ -15,7 +15,8 @@ import {
 } from "@/db/schema";
 import { requireUser, getMembership, isAdminRole } from "@/lib/session";
 import { revokeInviteById } from "@/lib/invites";
-import { searchGroups, type GroupSearchResult } from "@/lib/groups";
+import { searchGroups, isSlugTaken, type GroupSearchResult } from "@/lib/groups";
+import { validateSlug } from "@/lib/slug";
 
 export type ActionResult = { ok: boolean; error?: string };
 
@@ -31,6 +32,33 @@ export async function searchGroupsAction(
 async function requireAdmin(userId: string, organizationId: string) {
   const m = await getMembership(userId, organizationId);
   return m && isAdminRole(m.role) ? m : null;
+}
+
+/* ----------------------------- vanity slug --------------------------- */
+
+export async function updateGroupSlugAction(
+  organizationId: string,
+  rawSlug: string,
+): Promise<{ ok: boolean; error?: string; slug?: string }> {
+  const user = await requireUser();
+  if (!(await requireAdmin(user.id, organizationId)))
+    return { ok: false, error: "Only admins can change the group link." };
+
+  const v = validateSlug(rawSlug);
+  if (!v.ok) return { ok: false, error: v.error };
+  if (await isSlugTaken(v.slug, organizationId))
+    return { ok: false, error: "That link is already taken." };
+
+  try {
+    await db
+      .update(organization)
+      .set({ slug: v.slug })
+      .where(eq(organization.id, organizationId));
+  } catch {
+    // Unique-index race — someone grabbed it first.
+    return { ok: false, error: "That link is already taken." };
+  }
+  return { ok: true, slug: v.slug };
 }
 
 /* ------------------------------ invites ------------------------------ */

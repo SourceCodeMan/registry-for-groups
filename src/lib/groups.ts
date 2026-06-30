@@ -1,4 +1,5 @@
 import "server-only";
+import crypto from "crypto";
 import { and, asc, eq, ilike, inArray, or } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -7,6 +8,65 @@ import {
   organization,
   user as users,
 } from "@/db/schema";
+import { RESERVED_SLUGS, normalizeSlug } from "@/lib/slug";
+
+export type GroupBySlug = {
+  id: string;
+  name: string;
+  slug: string;
+  metadata: string | null;
+};
+
+/** Look up a group by its (normalized) vanity slug. Public — never returns
+ *  any list/member data, only enough to render a join landing. */
+export async function getGroupBySlug(
+  rawSlug: string,
+): Promise<GroupBySlug | null> {
+  const slug = normalizeSlug(rawSlug);
+  if (!slug) return null;
+  const [org] = await db
+    .select({
+      id: organization.id,
+      name: organization.name,
+      slug: organization.slug,
+      metadata: organization.metadata,
+    })
+    .from(organization)
+    .where(eq(organization.slug, slug))
+    .limit(1);
+  return org ?? null;
+}
+
+/** Is this slug already in use by some OTHER group? */
+export async function isSlugTaken(
+  rawSlug: string,
+  exceptOrgId?: string,
+): Promise<boolean> {
+  const slug = normalizeSlug(rawSlug);
+  if (!slug) return false;
+  const [hit] = await db
+    .select({ id: organization.id })
+    .from(organization)
+    .where(eq(organization.slug, slug))
+    .limit(1);
+  if (!hit) return false;
+  return exceptOrgId ? hit.id !== exceptOrgId : true;
+}
+
+/** A clean default slug derived from the group name, made unique. */
+export async function pickAvailableSlug(name: string): Promise<string> {
+  let base = normalizeSlug(name).slice(0, 32).replace(/-+$/g, "");
+  if (base.length < 3 || RESERVED_SLUGS.has(base)) {
+    base = `group-${base}`.replace(/-+$/g, "").slice(0, 32);
+  }
+  if (base.length < 3) base = "group";
+  if (!(await isSlugTaken(base))) return base;
+  for (let i = 0; i < 6; i++) {
+    const cand = `${base}-${crypto.randomBytes(2).toString("hex")}`.slice(0, 40);
+    if (!(await isSlugTaken(cand))) return cand;
+  }
+  return `${base}-${crypto.randomBytes(4).toString("hex")}`;
+}
 
 export type GroupSearchResult = {
   id: string;

@@ -14,6 +14,7 @@ import {
   RevokeInviteButton,
   JoinRequestActions,
 } from "./admin-controls";
+import { GroupLink } from "./group-link";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -108,6 +109,8 @@ export default async function GroupPage({
           {members.length} {members.length === 1 ? "member" : "members"}
         </p>
       </div>
+
+      <GroupLink organizationId={groupId} slug={org.slug} isAdmin={admin} />
 
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">

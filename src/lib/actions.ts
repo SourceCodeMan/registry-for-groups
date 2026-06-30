@@ -1,6 +1,5 @@
 "use server";
 
-import crypto from "crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -12,17 +11,8 @@ import { requireUser, getMembership, isAdminRole } from "@/lib/session";
 import { createInviteForGroup, acceptInviteToken } from "@/lib/invites";
 import { sendEmail, inviteEmail } from "@/lib/email";
 import { inviteLimiter } from "@/lib/ratelimit";
-
-function slugify(s: string) {
-  return (
-    s
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 40) || "group"
-  );
-}
+import { validateSlug } from "@/lib/slug";
+import { pickAvailableSlug, isSlugTaken } from "@/lib/groups";
 
 const groupSchema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -43,7 +33,18 @@ export async function createGroupAction(
   if (!parsed.success) return { error: "Please enter a group name." };
 
   const { name, type } = parsed.data;
-  const slug = `${slugify(name)}-${crypto.randomBytes(3).toString("hex")}`;
+
+  // Optional custom vanity slug; otherwise derive a clean one from the name.
+  const rawSlug = String(formData.get("slug") ?? "").trim();
+  let slug: string;
+  if (rawSlug) {
+    const v = validateSlug(rawSlug);
+    if (!v.ok) return { error: v.error };
+    if (await isSlugTaken(v.slug)) return { error: "That link is already taken." };
+    slug = v.slug;
+  } else {
+    slug = await pickAvailableSlug(name);
+  }
 
   let orgId: string | undefined;
   try {
