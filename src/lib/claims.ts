@@ -1,7 +1,14 @@
 import "server-only";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { claims, items, lists, organization, user as users } from "@/db/schema";
+import {
+  claims,
+  items,
+  lists,
+  member,
+  organization,
+  user as users,
+} from "@/db/schema";
 import { getMembership } from "@/lib/session";
 
 export type ClaimState = "unclaimed" | "reserved" | "purchased";
@@ -198,4 +205,113 @@ export async function getMyClaims(viewerId: string) {
     .innerJoin(organization, eq(lists.organizationId, organization.id))
     .where(eq(claims.buyerUserId, viewerId))
     .orderBy(asc(organization.name), asc(users.name));
+}
+
+export type RequestedGift = {
+  itemId: string;
+  title: string;
+  description: string | null;
+  url: string | null;
+  imageUrl: string | null;
+  priceCents: number | null;
+  quantity: number;
+  createdAt: Date;
+  ownerName: string;
+  listTitle: string;
+  groupId: string;
+  groupName: string;
+  claimState: ClaimState;
+  /** The VIEWER's own claim on this item (never anyone else's). */
+  mine: "reserved" | "purchased" | null;
+};
+
+/**
+ * A single feed of everything the viewer's groups have asked for — every
+ * wishlist item across every group they belong to, most-recently-added first,
+ * so they can find something to give. Their OWN items are excluded (you can't
+ * gift yourself, and it must never spoil). Same secrecy rules as browsing one
+ * member: coarse claim state so nothing gets double-bought, the viewer's own
+ * claim surfaced, but never WHO claimed anything.
+ */
+export async function getRequestedGiftsForViewer(
+  viewerId: string,
+  limit = 200,
+): Promise<RequestedGift[]> {
+  const memberships = await db
+    .select({ o: member.organizationId })
+    .from(member)
+    .where(eq(member.userId, viewerId));
+  const groupIds = memberships.map((m) => m.o);
+  if (groupIds.length === 0) return [];
+
+  const rows = await db
+    .select({
+      itemId: items.id,
+      title: items.title,
+      description: items.description,
+      url: items.url,
+      imageUrl: items.imageUrl,
+      priceCents: items.priceCents,
+      quantity: items.quantity,
+      createdAt: items.createdAt,
+      listTitle: lists.title,
+      ownerName: users.name,
+      groupId: organization.id,
+      groupName: organization.name,
+    })
+    .from(items)
+    .innerJoin(lists, eq(items.listId, lists.id))
+    .innerJoin(organization, eq(lists.organizationId, organization.id))
+    .innerJoin(users, eq(lists.ownerUserId, users.id))
+    .where(
+      and(
+        inArray(lists.organizationId, groupIds),
+        eq(lists.kind, "wishlist"),
+        ne(lists.ownerUserId, viewerId),
+      ),
+    )
+    .orderBy(desc(items.createdAt))
+    .limit(limit);
+  if (rows.length === 0) return [];
+
+  const itemIds = rows.map((r) => r.itemId);
+  const allClaims = await db
+    .select({
+      itemId: claims.itemId,
+      buyerUserId: claims.buyerUserId,
+      state: claims.state,
+    })
+    .from(claims)
+    .where(inArray(claims.itemId, itemIds));
+
+  const agg = new Map<
+    string,
+    { purchased: boolean; reserved: boolean; mine: "reserved" | "purchased" | null }
+  >();
+  for (const r of rows)
+    agg.set(r.itemId, { purchased: false, reserved: false, mine: null });
+  for (const c of allClaims) {
+    const a = agg.get(c.itemId);
+    if (!a) continue;
+    if (c.buyerUserId === viewerId) {
+      a.mine = c.state as "reserved" | "purchased";
+      continue;
+    }
+    if (c.state === "purchased") a.purchased = true;
+    else if (c.state === "reserved") a.reserved = true;
+  }
+
+  return rows.map((r) => {
+    const a = agg.get(r.itemId)!;
+    // Mirror the viewer's own claim if they hold one (so a co-claimant can't be
+    // inferred); otherwise reflect others' claims without ever naming them.
+    const claimState: ClaimState = a.mine
+      ? a.mine
+      : a.purchased
+        ? "purchased"
+        : a.reserved
+          ? "reserved"
+          : "unclaimed";
+    return { ...r, claimState, mine: a.mine };
+  });
 }

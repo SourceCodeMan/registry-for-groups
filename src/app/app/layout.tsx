@@ -19,6 +19,12 @@ export default async function AppLayout({
               🎁 Registry for Groups
             </Link>
             <Link
+              href="/app/requested"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              Gifts requested
+            </Link>
+            <Link
               href="/app/giving"
               className="text-sm text-muted-foreground hover:text-foreground"
             >
