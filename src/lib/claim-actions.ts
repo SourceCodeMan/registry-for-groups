@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { claims } from "@/db/schema";
 import { requireUser } from "@/lib/session";
 import { requireClaimableItem } from "@/lib/claims";
+import { notifyOwnerOfPurchase } from "@/lib/notify";
 
 export type ClaimActionResult = { ok: boolean; error?: string };
 
@@ -18,6 +19,14 @@ async function setClaim(
   // caller's own — no signal that distinguishes them.
   if (!claimable) return { ok: false, error: "This item isn't available." };
 
+  // Was the caller already the buyer, and in what state? (Drives the one-time
+  // "you're getting a present" nudge below.)
+  const [existing] = await db
+    .select({ state: claims.state })
+    .from(claims)
+    .where(and(eq(claims.itemId, itemId), eq(claims.buyerUserId, user.id)))
+    .limit(1);
+
   // One claim row per (item, buyer); upsert touches only the caller's own row.
   await db
     .insert(claims)
@@ -26,6 +35,12 @@ async function setClaim(
       target: [claims.itemId, claims.buyerUserId],
       set: { state, updatedAt: new Date() },
     });
+
+  // Only on a genuine transition INTO purchased — nudge the owner (generic,
+  // debounced). The owner can never be the caller (requireClaimableItem).
+  if (state === "purchased" && existing?.state !== "purchased") {
+    await notifyOwnerOfPurchase(claimable.list.ownerUserId);
+  }
   return { ok: true };
 }
 

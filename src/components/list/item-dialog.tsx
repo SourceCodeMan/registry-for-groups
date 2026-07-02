@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
+import { ImageUp, Sparkles, X } from "lucide-react";
 import { createItemAction, updateItemAction } from "@/lib/list-actions";
 import {
   Dialog,
@@ -39,6 +39,33 @@ function emptyFields(item?: ItemData) {
   };
 }
 
+// Photo uploads light up only when a Blob store is configured for the build.
+const UPLOADS_ENABLED = process.env.NEXT_PUBLIC_UPLOADS_ENABLED === "1";
+const MAX_UPLOAD_BYTES = 6 * 1024 * 1024;
+
+/** Shrink an image on-device to a sane size before upload — keeps storage
+ *  (and the user's data) small. Falls back to the original on any failure. */
+async function resizeImage(file: File, maxDim = 1200, quality = 0.82): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("no 2d context");
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close?.();
+  return await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("resize failed"))),
+      "image/jpeg",
+      quality,
+    ),
+  );
+}
+
 export function ItemDialog({
   listId,
   item,
@@ -61,6 +88,8 @@ export function ItemDialog({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fetching, setFetching] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [f, setF] = useState(() => emptyFields(item));
   const isEdit = !!item;
   const isOption = mode === "option";
@@ -123,6 +152,46 @@ export function ItemDialog({
       toast.error("Couldn't fetch that link.");
     } finally {
       setFetching(false);
+    }
+  }
+
+  async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file.");
+      return;
+    }
+    setUploading(true);
+    try {
+      let body: Blob = file;
+      try {
+        body = await resizeImage(file);
+      } catch {
+        body = file; // couldn't shrink (e.g. HEIC) — send the original
+      }
+      if (body.size > MAX_UPLOAD_BYTES) {
+        toast.error("That image is too large — try a smaller one.");
+        return;
+      }
+      const fd = new FormData();
+      fd.append("file", body, "gift.jpg");
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = (await res.json().catch(() => ({}))) as {
+        url?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.url) {
+        toast.error(data.error ?? "Upload failed.");
+        return;
+      }
+      setF((prev) => ({ ...prev, imageUrl: data.url as string }));
+      toast.success("Photo added.");
+    } catch {
+      toast.error("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -246,13 +315,58 @@ export function ItemDialog({
               </div>
             )}
             <div className="flex flex-col gap-2">
-              <Label htmlFor="imageUrl">Image URL (optional)</Label>
+              <Label htmlFor="imageUrl">Photo (optional)</Label>
+              {f.imageUrl && (
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={f.imageUrl}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="size-14 shrink-0 rounded-md border object-cover"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setF((p) => ({ ...p, imageUrl: "" }))}
+                  >
+                    <X className="size-4" /> Remove
+                  </Button>
+                </div>
+              )}
+              {UPLOADS_ENABLED && (
+                <>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={onPickFile}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    <ImageUp className="size-4" />
+                    {uploading
+                      ? "Uploading…"
+                      : f.imageUrl
+                        ? "Replace photo"
+                        : "Upload a photo"}
+                  </Button>
+                </>
+              )}
               <Input
                 id="imageUrl"
                 type="url"
                 value={f.imageUrl}
                 onChange={set("imageUrl")}
-                placeholder="https://…"
+                placeholder={
+                  UPLOADS_ENABLED ? "…or paste an image link" : "https://…"
+                }
               />
             </div>
             <div className="flex flex-col gap-2">

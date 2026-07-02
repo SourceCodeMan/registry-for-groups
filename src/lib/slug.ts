@@ -22,7 +22,7 @@ export const RESERVED_SLUGS = new Set([
   "images", "image", "img", "media", "files", "file",
   "favicon", "robots", "sitemap", "manifest", "webmanifest", "well-known",
   "_next", "next", "vercel", "status", "health", "ping",
-  "me", "you", "us", "team", "owner",
+  "me", "you", "us", "team", "owner", "surprise",
   "group", "groups", "list", "lists", "gift", "gifts",
   "registry", "registries", "pick", "picks", "wishlist", "wishlists",
 ]);

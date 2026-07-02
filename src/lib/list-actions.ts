@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { items, lists } from "@/db/schema";
 import { requireUser, getMembership } from "@/lib/session";
 import { requireOwnedList, requireOwnedItem } from "@/lib/lists";
+import { deleteOwnedBlob } from "@/lib/blob";
 
 /* ----------------------------- validation ----------------------------- */
 
@@ -123,7 +124,12 @@ export async function deleteListAction(listId: string): Promise<void> {
   const user = await requireUser();
   const list = await requireOwnedList(user.id, listId);
   if (!list) redirect("/app");
+  const imgs = await db
+    .select({ imageUrl: items.imageUrl })
+    .from(items)
+    .where(eq(items.listId, listId));
   await db.delete(lists).where(eq(lists.id, listId));
+  await Promise.all(imgs.map((r) => deleteOwnedBlob(r.imageUrl)));
   redirect(list!.organizationId ? `/app/groups/${list!.organizationId}` : "/app");
 }
 
@@ -199,7 +205,12 @@ export async function updateItemAction(
   const v = validateItem(data);
   if ("error" in v) return { ok: false, error: v.error };
 
+  const oldImage = owned.item.imageUrl;
   await db.update(items).set(v.values).where(eq(items.id, itemId));
+  // A swapped-out photo we hosted shouldn't linger publicly.
+  if (oldImage && oldImage !== v.values.imageUrl) {
+    await deleteOwnedBlob(oldImage);
+  }
   return { ok: true };
 }
 
@@ -210,6 +221,7 @@ export async function deleteItemAction(
   const owned = await requireOwnedItem(user.id, itemId);
   if (!owned) return { ok: false, error: "Not found." };
   await db.delete(items).where(eq(items.id, itemId));
+  await deleteOwnedBlob(owned.item.imageUrl);
   return { ok: true };
 }
 

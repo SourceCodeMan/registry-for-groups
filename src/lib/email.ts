@@ -1,4 +1,5 @@
 import "server-only";
+import crypto from "crypto";
 
 type SendArgs = {
   to: string;
@@ -84,6 +85,38 @@ export function resetPasswordEmail(url: string) {
       { url, label: "Reset password" },
     ),
     text: `Reset your Registry for Groups password (link expires in 1 hour):\n${url}`,
+  };
+}
+
+/**
+ * The "you're getting a present!" nudge. Deliberately generic — it NEVER names
+ * the item, the buyer, or how many — so it builds excitement without ever
+ * spoiling the surprise. One is picked at random for a bit of delight.
+ */
+const GIFT_NUDGES: Array<{ subject: string; heading: string; line: string }> = [
+  { subject: "🎁 Someone loves you!", heading: "Someone loves you! 💛", line: "Somebody in your group just bought you one of the gifts on your list." },
+  { subject: "You're getting a present! 🎉", heading: "You're getting a present! 🎉", line: "One of your wishes just came true — a gift was purchased for you." },
+  { subject: "Psst… a gift is on its way 🤫", heading: "Psst… a gift is on its way 🤫", line: "Someone just claimed one of your wishlist items. Lucky you!" },
+  { subject: "Someone just made your day 🎁", heading: "Someone just made your day 🎁", line: "A gift from your list was marked as bought. How exciting!" },
+  { subject: "A surprise is brewing… ✨", heading: "A surprise is brewing… ✨", line: "One of your requested gifts is officially spoken for." },
+  { subject: "Ka-ching! A gift was claimed for you 🛍️", heading: "Ka-ching! 🛍️", line: "Someone couldn't resist your wishlist and grabbed you a gift." },
+  { subject: "Somebody's thinking of you 💝", heading: "Somebody's thinking of you 💝", line: "A gift you asked for was just purchased." },
+  { subject: "One of your wishes is coming true ✨", heading: "A wish is coming true ✨", line: "Someone in your group bought you something straight off your list." },
+  { subject: "Shhh — a present just got bought 🤐", heading: "Shhh… 🤐", line: "A gift on your list is now on its way to you." },
+  { subject: "You've got a wishlist admirer 😍", heading: "You've got an admirer 😍", line: "Someone loved something on your list enough to buy it." },
+  { subject: "🎁 Gift incoming!", heading: "Gift incoming! 🎁", line: "One of your requested gifts was just purchased for you." },
+  { subject: "Someone couldn't resist your list 🥰", heading: "Someone couldn't resist 🥰", line: "A gift from your wishlist has been happily snapped up." },
+];
+
+export function giftPurchasedEmail(shakeUrl: string) {
+  const v = GIFT_NUDGES[crypto.randomInt(0, GIFT_NUDGES.length)];
+  const body = `<div style="font-size:44px;line-height:1;text-align:center;margin:2px 0 16px">🎁</div>
+    <p style="margin:0 0 12px">${v.line}</p>
+    <p style="margin:0;color:#737373">We're keeping it a secret <strong>which</strong> gift and <strong>who</strong> bought it — no spoilers! — but the surprise is real. 😉</p>`;
+  return {
+    subject: v.subject,
+    html: shell(v.heading, body, { url: shakeUrl, label: "🎁 Shake your present" }),
+    text: `${v.line}\n\nWe won't say which gift, or who — no spoilers! — but something from your list was just bought for you.\n\nTry to shake it (no cheating!): ${shakeUrl}`,
   };
 }
 

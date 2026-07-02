@@ -59,3 +59,16 @@ export const unfurlLimiter: Limiter = redis
       }),
     )
   : memoryLimiter(20, 60 * 1000);
+
+// Image uploads: 30 per account per hour — plenty for real use, caps the
+// cost/storage blast radius of a scripted-upload abuser.
+export const uploadLimiter: Limiter = redis
+  ? upstash(
+      new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(30, "1 h"),
+        prefix: "rl:upload",
+        analytics: false,
+      }),
+    )
+  : memoryLimiter(30, 60 * 60 * 1000);

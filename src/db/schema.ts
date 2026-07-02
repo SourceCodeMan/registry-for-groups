@@ -229,6 +229,19 @@ export const pageViews = pgTable("page_views", {
   views: integer("views").notNull().default(0),
 });
 
+/**
+ * Debounce for the "you're getting a present!" nudge. We email a list owner at
+ * most once per window when their items get purchased — deliberately generic
+ * (never which item, who, or how many), so it builds excitement without ever
+ * spoiling the no-spoiler guarantee. One row per owner records the last send.
+ */
+export const giftNotifications = pgTable("gift_notifications", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  lastSentAt: timestamp("last_sent_at").defaultNow().notNull(),
+});
+
 export const listsRelations = relations(lists, ({ one, many }) => ({
   organization: one(organization, {
     fields: [lists.organizationId],

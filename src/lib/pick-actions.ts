@@ -4,10 +4,11 @@ import { redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { lists, picks } from "@/db/schema";
+import { items, lists, picks } from "@/db/schema";
 import { requireUser, getMembership } from "@/lib/session";
 import { requireOwnedList } from "@/lib/lists";
 import { requirePickableItem } from "@/lib/picks";
+import { deleteOwnedBlob } from "@/lib/blob";
 
 export type PickListFormState = { error?: string };
 export type ActionResult = { ok: boolean; error?: string };
@@ -76,7 +77,12 @@ export async function deletePickListAction(listId: string): Promise<void> {
   const list = await requireOwnedList(user.id, listId);
   if (!list || list.kind !== "pick") redirect("/app");
   const groupId = list!.organizationId;
+  const imgs = await db
+    .select({ imageUrl: items.imageUrl })
+    .from(items)
+    .where(eq(items.listId, listId));
   await db.delete(lists).where(eq(lists.id, listId));
+  await Promise.all(imgs.map((r) => deleteOwnedBlob(r.imageUrl)));
   redirect(groupId ? `/app/groups/${groupId}` : "/app");
 }
 
