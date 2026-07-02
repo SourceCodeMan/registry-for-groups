@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useUploadsEnabled } from "@/components/uploads-context";
 
 export type ItemData = {
   id: string;
@@ -39,8 +40,6 @@ function emptyFields(item?: ItemData) {
   };
 }
 
-// Photo uploads light up only when a Blob store is configured for the build.
-const UPLOADS_ENABLED = process.env.NEXT_PUBLIC_UPLOADS_ENABLED === "1";
 const MAX_UPLOAD_BYTES = 6 * 1024 * 1024;
 
 /** Shrink an image on-device to a sane size before upload — keeps storage
@@ -90,6 +89,7 @@ export function ItemDialog({
   const [fetching, setFetching] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const uploadsEnabled = useUploadsEnabled();
   const [f, setF] = useState(() => emptyFields(item));
   const isEdit = !!item;
   const isOption = mode === "option";
@@ -335,7 +335,7 @@ export function ItemDialog({
                   </Button>
                 </div>
               )}
-              {UPLOADS_ENABLED && (
+              {uploadsEnabled && (
                 <>
                   <input
                     ref={fileRef}
@@ -365,7 +365,7 @@ export function ItemDialog({
                 value={f.imageUrl}
                 onChange={set("imageUrl")}
                 placeholder={
-                  UPLOADS_ENABLED ? "…or paste an image link" : "https://…"
+                  uploadsEnabled ? "…or paste an image link" : "https://…"
                 }
               />
             </div>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/session";
 import { isSuperAdmin } from "@/lib/admin";
 import { UserMenu } from "@/components/user-menu";
+import { UploadsProvider } from "@/components/uploads-context";
 
 export default async function AppLayout({
   children,
@@ -9,6 +10,7 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
+  const uploadsEnabled = !!process.env.BLOB_READ_WRITE_TOKEN;
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -39,7 +41,7 @@ export default async function AppLayout({
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
-        {children}
+        <UploadsProvider enabled={uploadsEnabled}>{children}</UploadsProvider>
       </main>
     </div>
   );
