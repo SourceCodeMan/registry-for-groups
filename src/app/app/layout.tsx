@@ -43,6 +43,19 @@ export default async function AppLayout({
       <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
         <UploadsProvider enabled={uploadsEnabled}>{children}</UploadsProvider>
       </main>
+      <footer className="mx-auto w-full max-w-5xl px-6 pb-10 pt-4">
+        <div className="flex flex-col items-center gap-2 border-t pt-6 text-sm text-muted-foreground">
+          <span>Made with 🎁 for families &amp; groups</span>
+          <a
+            href="https://buymeacoffee.com/tomchapman"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            ☕ Buy me a coffee
+          </a>
+        </div>
+      </footer>
     </div>
   );
 }

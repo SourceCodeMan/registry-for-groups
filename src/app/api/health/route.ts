@@ -16,5 +16,6 @@ export async function GET() {
     ),
     resend: !!process.env.RESEND_API_KEY,
     emailFrom: !!process.env.EMAIL_FROM,
+    blob: !!process.env.BLOB_READ_WRITE_TOKEN,
   });
 }
