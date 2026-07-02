@@ -201,3 +201,20 @@
 .animate-present-shake {
   animation: present-shake 0.72s ease-in-out;
 }
+
+/* Brief orange ring to point someone at their own lists. */
+@keyframes flash-highlight {
+  0% {
+    box-shadow: 0 0 0 0 rgba(217, 154, 78, 0);
+  }
+  12% {
+    box-shadow: 0 0 0 4px rgba(217, 154, 78, 0.75);
+  }
+  100% {
+    box-shadow: 0 0 0 4px rgba(217, 154, 78, 0);
+  }
+}
+
+.flash-highlight {
+  animation: flash-highlight 1.6s ease-out;
+}

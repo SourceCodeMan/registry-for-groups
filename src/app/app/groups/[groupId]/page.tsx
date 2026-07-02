@@ -16,6 +16,7 @@ import {
   JoinRequestActions,
 } from "./admin-controls";
 import { GroupLink } from "./group-link";
+import { MeRow } from "./me-row";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -113,7 +114,7 @@ export default async function GroupPage({
 
       <GroupLink organizationId={groupId} slug={org.slug} isAdmin={admin} />
 
-      <Card>
+      <Card id="your-lists" className="scroll-mt-24">
         <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
           <div className="flex flex-col gap-1.5">
             <CardTitle className="text-base">Your lists</CardTitle>
@@ -239,9 +240,7 @@ export default async function GroupPage({
                 {i > 0 && <Separator />}
                 <div className="flex items-center gap-2 py-3">
                   {isMe ? (
-                    <div className="flex min-w-0 flex-1 items-center gap-3">
-                      {identity}
-                    </div>
+                    <MeRow>{identity}</MeRow>
                   ) : (
                     <Link
                       href={`/app/groups/${groupId}/members/${m.id}`}
