@@ -5,6 +5,7 @@ import { getOwnedListWithItems } from "@/lib/lists";
 import { Badge } from "@/components/ui/badge";
 import { ItemCard } from "@/components/list/item-card";
 import { ItemDialog } from "@/components/list/item-dialog";
+import { ListRequestSummary } from "@/components/list/list-request-summary";
 import { ListSettings } from "@/components/list/list-settings";
 
 const OCCASION_LABEL: Record<string, string> = {
@@ -79,6 +80,8 @@ export default async function ListDetailPage({
         🤫 This is your list — you won&apos;t see who&apos;s claimed what, so
         nothing gets spoiled.
       </p>
+
+      <ListRequestSummary items={items} />
 
       <div className="flex flex-col gap-3">
         {items.length === 0 ? (

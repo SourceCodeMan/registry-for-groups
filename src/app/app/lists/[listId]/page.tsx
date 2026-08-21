@@ -6,6 +6,7 @@ import { formatDate, OCCASION_LABEL } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { ItemCard } from "@/components/list/item-card";
 import { ItemDialog } from "@/components/list/item-dialog";
+import { ListRequestSummary } from "@/components/list/list-request-summary";
 import { ListSettings } from "@/components/list/list-settings";
 
 export default async function PersonalListPage({
@@ -62,6 +63,8 @@ export default async function PersonalListPage({
       <p className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
         📦 This is a personal list — it isn&apos;t shared with any group yet.
       </p>
+
+      <ListRequestSummary items={items} />
 
       <div className="flex flex-col gap-3">
         {items.length === 0 ? (
