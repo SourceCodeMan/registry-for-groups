@@ -8,6 +8,7 @@ import { getUserListsInGroup } from "@/lib/lists";
 import { getGroupPickLists } from "@/lib/picks";
 import { getPendingInvites } from "@/lib/invites";
 import { getPendingJoinRequests } from "@/lib/groups";
+import { getGroupStats } from "@/lib/admin";
 import { formatDate } from "@/lib/format";
 import {
   RemoveMemberButton,
@@ -61,6 +62,32 @@ function InviteStatusBadge({ status }: { status: string }) {
   );
 }
 
+function GroupStat({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: number;
+  hint?: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-1">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          {label}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-semibold tracking-tight">
+          {value.toLocaleString()}
+        </div>
+        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default async function GroupPage({
   params,
 }: {
@@ -92,10 +119,14 @@ export default async function GroupPage({
     .where(eq(member.organizationId, groupId));
 
   const admin = isAdminRole(membership.role);
-  const myLists = await getUserListsInGroup(me.id, groupId);
-  const pickLists = await getGroupPickLists(groupId);
-  const joinRequests = admin ? await getPendingJoinRequests(groupId) : [];
-  const pendingInvites = admin ? await getPendingInvites(groupId) : [];
+  const [myLists, pickLists, joinRequests, pendingInvites, stats] =
+    await Promise.all([
+      getUserListsInGroup(me.id, groupId),
+      getGroupPickLists(groupId),
+      admin ? getPendingJoinRequests(groupId) : Promise.resolve([]),
+      admin ? getPendingInvites(groupId) : Promise.resolve([]),
+      admin ? getGroupStats(groupId) : Promise.resolve(null),
+    ]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -113,6 +144,53 @@ export default async function GroupPage({
       </div>
 
       <GroupLink organizationId={groupId} slug={org.slug} isAdmin={admin} />
+
+      {stats && (
+        <section className="flex flex-col gap-3">
+          <div>
+            <h2 className="text-base font-semibold tracking-tight">
+              Group activity
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Aggregate activity for admins. Gift claims stay anonymous so no
+              surprises are spoiled.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <GroupStat
+              label="Members"
+              value={stats.members}
+              hint={`${stats.admins} ${stats.admins === 1 ? "admin" : "admins"}`}
+            />
+            <GroupStat
+              label="Wishlists"
+              value={stats.wishlists}
+              hint={`${stats.pickLists} pick lists · ${stats.archivedLists} archived`}
+            />
+            <GroupStat
+              label="Items requested"
+              value={stats.itemsRequested}
+              hint="across group wishlists"
+            />
+            <GroupStat
+              label="Gifts in progress"
+              value={stats.reserved}
+              hint={`${stats.gifted} marked purchased`}
+            />
+            <GroupStat label="Pick-list choices" value={stats.picks} />
+            <GroupStat
+              label="Join requests"
+              value={stats.joinRequestsPending}
+              hint={`${stats.joinRequestsApproved} approved · ${stats.joinRequestsDenied} declined`}
+            />
+            <GroupStat
+              label="Live invite links"
+              value={stats.liveInvites}
+              hint="not used, revoked, or expired"
+            />
+          </div>
+        </section>
+      )}
 
       <Card id="your-lists" className="scroll-mt-24">
         <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
