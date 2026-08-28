@@ -18,10 +18,14 @@ export function ClaimButtons({
   itemId,
   claimState,
   mine,
+  quantity = 1,
+  claimedCount = 0,
 }: {
   itemId: string;
   claimState: ClaimState;
   mine: "reserved" | "purchased" | null;
+  quantity?: number;
+  claimedCount?: number;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -54,20 +58,24 @@ export function ClaimButtons({
             <Check className="size-4" /> Mark purchased
           </Button>
         )}
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={pending}
-          onClick={() => run(() => releaseClaimAction(itemId))}
-        >
-          Release
-        </Button>
+        {mine === "reserved" && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={pending}
+            onClick={() => run(() => releaseClaimAction(itemId))}
+          >
+            Release
+          </Button>
+        )}
       </div>
     );
   }
 
-  // Someone else has it — show status, never who, no actions.
-  if (claimState !== "unclaimed") {
+  const slotsLeft = Math.max(0, quantity - claimedCount);
+
+  // Fully spoken for — show status, never who, no actions.
+  if (slotsLeft <= 0) {
     return (
       <Badge variant="outline" className="text-muted-foreground">
         {claimState === "purchased" ? "Purchased" : "Reserved"} by someone
@@ -75,9 +83,13 @@ export function ClaimButtons({
     );
   }
 
-  // Unclaimed.
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {claimedCount > 0 && quantity > 1 && (
+        <span className="text-xs text-muted-foreground">
+          {claimedCount} of {quantity} reserved
+        </span>
+      )}
       <Button
         size="sm"
         variant="outline"

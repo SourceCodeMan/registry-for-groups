@@ -2,7 +2,7 @@ import "server-only";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { giftNotifications, user as users } from "@/db/schema";
-import { sendEmail, giftPurchasedEmail } from "@/lib/email";
+import { sendEmail, giftPurchasedEmail, publicAppUrl } from "@/lib/email";
 
 /**
  * Nudge a list owner that a gift was bought for them — at most once per window,
@@ -33,9 +33,20 @@ export async function notifyOwnerOfPurchase(ownerUserId: string): Promise<void> 
       .limit(1);
     if (!owner?.email) return;
 
-    const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
-    const mail = giftPurchasedEmail(`${base}/surprise`);
-    await sendEmail({ to: owner.email, ...mail });
+    const base = publicAppUrl();
+    if (!base) return;
+
+    try {
+      const mail = giftPurchasedEmail(`${base}/surprise`);
+      await sendEmail({ to: owner.email, ...mail });
+    } catch (sendErr) {
+      // Slot was claimed before the send; free it so a later purchase retries.
+      await db
+        .update(giftNotifications)
+        .set({ lastSentAt: sql`now() - interval '21 hours'` })
+        .where(eq(giftNotifications.userId, ownerUserId));
+      throw sendErr;
+    }
   } catch (e) {
     console.error("[notify] gift purchase nudge failed", (e as Error).message);
   }

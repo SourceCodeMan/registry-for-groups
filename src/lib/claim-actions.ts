@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { claims } from "@/db/schema";
 import { requireUser } from "@/lib/session";
@@ -8,6 +8,11 @@ import { requireClaimableItem } from "@/lib/claims";
 import { notifyOwnerOfPurchase } from "@/lib/notify";
 
 export type ClaimActionResult = { ok: boolean; error?: string };
+
+const UNAVAILABLE: ClaimActionResult = {
+  ok: false,
+  error: "This item isn't available.",
+};
 
 async function setClaim(
   itemId: string,
@@ -17,28 +22,46 @@ async function setClaim(
   const claimable = await requireClaimableItem(user.id, itemId);
   // Same generic failure whether the item is missing, cross-group, or the
   // caller's own — no signal that distinguishes them.
-  if (!claimable) return { ok: false, error: "This item isn't available." };
+  if (!claimable) return UNAVAILABLE;
 
-  // Was the caller already the buyer, and in what state? (Drives the one-time
-  // "you're getting a present" nudge below.)
-  const [existing] = await db
-    .select({ state: claims.state })
-    .from(claims)
-    .where(and(eq(claims.itemId, itemId), eq(claims.buyerUserId, user.id)))
-    .limit(1);
-
-  // One claim row per (item, buyer); upsert touches only the caller's own row.
-  await db
-    .insert(claims)
-    .values({ itemId, buyerUserId: user.id, state })
-    .onConflictDoUpdate({
-      target: [claims.itemId, claims.buyerUserId],
-      set: { state, updatedAt: new Date() },
+  // New claims need a live group membership; requireClaimableItem already
+  // allows an existing claim on a detached list through.
+  let previous: string | undefined;
+  try {
+    const outcome = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select id from items where id = ${itemId} for update`,
+      );
+      const [existing] = await tx
+        .select({ state: claims.state })
+        .from(claims)
+        .where(and(eq(claims.itemId, itemId), eq(claims.buyerUserId, user.id)))
+        .limit(1);
+      if (!existing) {
+        const [{ n } = { n: 0 }] = await tx
+          .select({ n: sql<number>`count(*)::int` })
+          .from(claims)
+          .where(eq(claims.itemId, itemId));
+        const qty = Math.max(1, claimable.item.quantity);
+        if ((n ?? 0) >= qty) return "full" as const;
+        await tx
+          .insert(claims)
+          .values({ itemId, buyerUserId: user.id, state });
+      } else {
+        await tx
+          .update(claims)
+          .set({ state, updatedAt: new Date() })
+          .where(and(eq(claims.itemId, itemId), eq(claims.buyerUserId, user.id)));
+      }
+      return existing?.state;
     });
+    if (outcome === "full") return UNAVAILABLE;
+    previous = outcome;
+  } catch {
+    return UNAVAILABLE;
+  }
 
-  // Only on a genuine transition INTO purchased — nudge the owner (generic,
-  // debounced). The owner can never be the caller (requireClaimableItem).
-  if (state === "purchased" && existing?.state !== "purchased") {
+  if (state === "purchased" && previous !== "purchased") {
     await notifyOwnerOfPurchase(claimable.list.ownerUserId);
   }
   return { ok: true };
@@ -64,9 +87,29 @@ export async function releaseClaimAction(
 ): Promise<ClaimActionResult> {
   const user = await requireUser();
   const claimable = await requireClaimableItem(user.id, itemId);
-  if (!claimable) return { ok: false, error: "This item isn't available." };
-  await db
+  if (!claimable) return UNAVAILABLE;
+  // Purchased stays purchased — releasing after the owner was nudged would
+  // make the "you're getting a present" mail a lie.
+  const deleted = await db
     .delete(claims)
-    .where(and(eq(claims.itemId, itemId), eq(claims.buyerUserId, user.id)));
+    .where(
+      and(
+        eq(claims.itemId, itemId),
+        eq(claims.buyerUserId, user.id),
+        eq(claims.state, "reserved"),
+      ),
+    )
+    .returning({ id: claims.id });
+  if (deleted.length === 0) {
+    const [held] = await db
+      .select({ state: claims.state })
+      .from(claims)
+      .where(and(eq(claims.itemId, itemId), eq(claims.buyerUserId, user.id)))
+      .limit(1);
+    if (held?.state === "purchased") {
+      return { ok: false, error: "Purchased gifts can't be released." };
+    }
+    return UNAVAILABLE;
+  }
   return { ok: true };
 }

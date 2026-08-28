@@ -9,7 +9,8 @@ import { organization } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { requireUser, getMembership, isAdminRole } from "@/lib/session";
 import { createInviteForGroup, acceptInviteToken } from "@/lib/invites";
-import { sendEmail, inviteEmail } from "@/lib/email";
+import { sendEmail, inviteEmail, publicAppUrl } from "@/lib/email";
+import { revokeInviteById } from "@/lib/invites";
 import { inviteLimiter } from "@/lib/ratelimit";
 import { validateSlug } from "@/lib/slug";
 import { pickAvailableSlug, isSlugTaken } from "@/lib/groups";
@@ -25,7 +26,7 @@ export async function createGroupAction(
   _prev: GroupFormState,
   formData: FormData,
 ): Promise<GroupFormState> {
-  const user = await requireUser();
+  await requireUser();
   const parsed = groupSchema.safeParse({
     name: formData.get("name"),
     type: formData.get("type"),
@@ -74,8 +75,10 @@ export async function createInviteAction(
     return { error: "You've created a lot of invites — try again later." };
   }
 
+  const base = publicAppUrl();
+  if (!base) return { error: "Invites aren't configured." };
+
   const { token } = await createInviteForGroup(organizationId, user.id);
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
   return { url: `${base}/join/${token}` };
 }
 
@@ -105,10 +108,21 @@ export async function emailInviteAction(
     .where(eq(organization.id, organizationId))
     .limit(1);
 
-  const { token } = await createInviteForGroup(organizationId, user.id, clean);
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const base = publicAppUrl();
+  if (!base) return { ok: false, error: "Invites aren't configured." };
+
+  const { token, id } = await createInviteForGroup(
+    organizationId,
+    user.id,
+    clean,
+  );
   const mail = inviteEmail(org?.name ?? "your group", `${base}/join/${token}`);
-  await sendEmail({ to: clean, ...mail });
+  try {
+    await sendEmail({ to: clean, ...mail });
+  } catch {
+    await revokeInviteById(id, organizationId);
+    return { ok: false, error: "Couldn't send the invite. Please try again." };
+  }
   return { ok: true };
 }
 

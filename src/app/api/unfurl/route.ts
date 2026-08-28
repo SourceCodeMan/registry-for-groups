@@ -29,6 +29,9 @@ export async function POST(req: Request) {
     typeof (body as { url: unknown }).url === "string"
       ? (body as { url: string }).url
       : "";
+  if (url.length > 2048) {
+    return NextResponse.json({ error: "Bad request" }, { status: 400 });
+  }
 
   const result = await unfurl(url);
   return NextResponse.json(result);

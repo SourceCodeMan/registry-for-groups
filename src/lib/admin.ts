@@ -15,9 +15,13 @@ function adminEmails(): Set<string> {
 }
 
 export function isSuperAdmin(
-  user: { email?: string | null } | null | undefined,
+  user:
+    | { email?: string | null; emailVerified?: boolean | null }
+    | null
+    | undefined,
 ): boolean {
-  const email = user?.email?.toLowerCase();
+  if (!user?.emailVerified) return false;
+  const email = user.email?.toLowerCase();
   return !!email && adminEmails().has(email);
 }
 

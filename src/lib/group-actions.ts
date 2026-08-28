@@ -17,6 +17,7 @@ import { requireUser, getMembership, isAdminRole } from "@/lib/session";
 import { revokeInviteById } from "@/lib/invites";
 import { searchGroups, isSlugTaken, type GroupSearchResult } from "@/lib/groups";
 import { validateSlug } from "@/lib/slug";
+import { joinLimiter, searchLimiter } from "@/lib/ratelimit";
 
 export type ActionResult = { ok: boolean; error?: string };
 
@@ -26,6 +27,7 @@ export async function searchGroupsAction(
   query: string,
 ): Promise<GroupSearchResult[]> {
   const user = await requireUser();
+  if (!(await searchLimiter.limit(user.id)).success) return [];
   return searchGroups(query, user.id);
 }
 
@@ -119,6 +121,7 @@ export async function removeMemberAction(
       .where(
         and(
           eq(claims.buyerUserId, targetUserId),
+          eq(claims.state, "reserved"),
           eq(lists.organizationId, organizationId),
         ),
       );
@@ -161,6 +164,29 @@ export async function removeMemberAction(
           eq(lists.kind, "pick"),
         ),
       );
+    // Release *other* members' reservations on the lists we're about to
+    // detach (purchased rows stay as the audit of a real buy).
+    const reservedOnOwned = await tx
+      .select({ id: claims.id })
+      .from(claims)
+      .innerJoin(items, eq(claims.itemId, items.id))
+      .innerJoin(lists, eq(items.listId, lists.id))
+      .where(
+        and(
+          eq(lists.ownerUserId, targetUserId),
+          eq(lists.organizationId, organizationId),
+          eq(lists.kind, "wishlist"),
+          eq(claims.state, "reserved"),
+        ),
+      );
+    if (reservedOnOwned.length) {
+      await tx.delete(claims).where(
+        inArray(
+          claims.id,
+          reservedOnOwned.map((c) => c.id),
+        ),
+      );
+    }
     // ...but keep their WISHLISTS — detach them to personal.
     await tx
       .update(lists)
@@ -227,6 +253,9 @@ export async function requestJoinAction(
   organizationId: string,
 ): Promise<ActionResult> {
   const user = await requireUser();
+  if (!(await joinLimiter.limit(user.id)).success) {
+    return { ok: false, error: "You've sent a lot of requests — try again later." };
+  }
   if (await getMembership(user.id, organizationId))
     return { ok: false, error: "You're already in this group." };
   const [org] = await db
@@ -235,6 +264,27 @@ export async function requestJoinAction(
     .where(eq(organization.id, organizationId))
     .limit(1);
   if (!org) return { ok: false, error: "Group not found." };
+
+  const [existing] = await db
+    .select()
+    .from(joinRequests)
+    .where(
+      and(
+        eq(joinRequests.organizationId, organizationId),
+        eq(joinRequests.userId, user.id),
+      ),
+    )
+    .limit(1);
+  if (existing?.status === "pending") return { ok: true };
+  if (existing?.status === "denied") {
+    const at = existing.decidedAt?.getTime() ?? 0;
+    if (Date.now() - at < 24 * 60 * 60 * 1000) {
+      return {
+        ok: false,
+        error: "Your last request was declined. Try again tomorrow.",
+      };
+    }
+  }
 
   await db
     .insert(joinRequests)
@@ -265,17 +315,19 @@ export async function approveJoinRequestAction(
   if (!(await requireAdmin(user.id, req.organizationId)))
     return { ok: false, error: "Only admins can approve." };
 
-  const existing = await getMembership(req.userId, req.organizationId);
   await db.transaction(async (tx) => {
-    if (!existing) {
-      await tx.insert(member).values({
+    await tx
+      .insert(member)
+      .values({
         id: crypto.randomUUID(),
         organizationId: req.organizationId,
         userId: req.userId,
         role: "member",
         createdAt: new Date(),
+      })
+      .onConflictDoNothing({
+        target: [member.organizationId, member.userId],
       });
-    }
     await tx
       .update(joinRequests)
       .set({ status: "approved", decidedAt: new Date(), decidedByUserId: user.id })

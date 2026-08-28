@@ -93,6 +93,8 @@ export default async function RequestedPage() {
                   itemId={g.itemId}
                   claimState={g.claimState}
                   mine={g.mine}
+                  quantity={g.quantity}
+                  claimedCount={g.claimedCount}
                 />
               </div>
             </div>

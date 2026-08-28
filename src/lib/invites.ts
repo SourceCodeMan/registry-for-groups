@@ -3,7 +3,6 @@ import crypto from "crypto";
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { groupInvites, member, organization } from "@/db/schema";
-import { getMembership } from "@/lib/session";
 
 const INVITE_TTL_MS = 72 * 60 * 60 * 1000; // 72h
 
@@ -28,17 +27,20 @@ export async function createInviteForGroup(
   email?: string | null,
 ) {
   const token = crypto.randomBytes(32).toString("base64url");
-  await db.insert(groupInvites).values({
-    organizationId,
-    tokenHash: hashToken(token),
-    email: email ?? null,
-    role: "member",
-    createdByUserId: userId,
-    maxUses: 1,
-    uses: 0,
-    expiresAt: new Date(Date.now() + INVITE_TTL_MS),
-  });
-  return { token };
+  const [row] = await db
+    .insert(groupInvites)
+    .values({
+      organizationId,
+      tokenHash: hashToken(token),
+      email: email ?? null,
+      role: "member",
+      createdByUserId: userId,
+      maxUses: 1,
+      uses: 0,
+      expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+    })
+    .returning({ id: groupInvites.id });
+  return { token, id: row.id };
 }
 
 export type PendingInvite = {
@@ -122,30 +124,43 @@ export async function getInvitePreview(token: string) {
 export async function acceptInviteToken(token: string, userId: string) {
   const tokenHash = hashToken(token);
 
-  const found = await db
-    .select({ organizationId: groupInvites.organizationId })
-    .from(groupInvites)
-    .where(liveInvite(tokenHash))
-    .limit(1);
-  if (!found[0]) return { ok: false as const };
-  const organizationId = found[0].organizationId;
+  return db.transaction(async (tx) => {
+    const found = await tx
+      .select({ organizationId: groupInvites.organizationId })
+      .from(groupInvites)
+      .where(liveInvite(tokenHash))
+      .limit(1);
+    if (!found[0]) return { ok: false as const };
+    const organizationId = found[0].organizationId;
 
-  const existing = await getMembership(userId, organizationId);
-  if (existing) return { ok: true as const, organizationId };
+    const existing = await tx
+      .select({ id: member.id })
+      .from(member)
+      .where(
+        and(eq(member.userId, userId), eq(member.organizationId, organizationId)),
+      )
+      .limit(1);
+    if (existing[0]) return { ok: true as const, organizationId };
 
-  const consumed = await db
-    .update(groupInvites)
-    .set({ uses: sql`${groupInvites.uses} + 1` })
-    .where(liveInvite(tokenHash))
-    .returning({ id: groupInvites.id });
-  if (consumed.length !== 1) return { ok: false as const };
+    const consumed = await tx
+      .update(groupInvites)
+      .set({ uses: sql`${groupInvites.uses} + 1` })
+      .where(liveInvite(tokenHash))
+      .returning({ id: groupInvites.id });
+    if (consumed.length !== 1) return { ok: false as const };
 
-  await db.insert(member).values({
-    id: crypto.randomUUID(),
-    organizationId,
-    userId,
-    role: "member",
-    createdAt: new Date(),
+    await tx
+      .insert(member)
+      .values({
+        id: crypto.randomUUID(),
+        organizationId,
+        userId,
+        role: "member",
+        createdAt: new Date(),
+      })
+      .onConflictDoNothing({
+        target: [member.organizationId, member.userId],
+      });
+    return { ok: true as const, organizationId };
   });
-  return { ok: true as const, organizationId };
 }

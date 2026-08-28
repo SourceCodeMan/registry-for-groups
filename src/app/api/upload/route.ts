@@ -2,9 +2,9 @@ import { put } from "@vercel/blob";
 import { getSession } from "@/lib/session";
 import { uploadLimiter } from "@/lib/ratelimit";
 
-// The client shrinks images before sending, so this ceiling is just a
+// Align with Vercel's ~4.5MB body cap. The client shrinks first; this is a
 // backstop against abuse.
-const MAX_BYTES = 6 * 1024 * 1024;
+const MAX_BYTES = 4 * 1024 * 1024;
 
 /** Sniff real image bytes — never trust the client-declared MIME. */
 function sniff(b: Uint8Array): "image/jpeg" | "image/png" | "image/webp" | null {
@@ -15,7 +15,9 @@ function sniff(b: Uint8Array): "image/jpeg" | "image/png" | "image/webp" | null 
     b[2] === 0x4e &&
     b[3] === 0x47 &&
     b[4] === 0x0d &&
-    b[5] === 0x0a
+    b[5] === 0x0a &&
+    b[6] === 0x1a &&
+    b[7] === 0x0a
   )
     return "image/png";
   if (
@@ -54,6 +56,14 @@ export async function POST(req: Request) {
     return Response.json(
       { error: "You've uploaded a lot of photos — try again later." },
       { status: 429 },
+    );
+  }
+
+  const declared = Number(req.headers.get("content-length") ?? "0");
+  if (declared > MAX_BYTES + 64 * 1024) {
+    return Response.json(
+      { error: "That image is too large — try a smaller one." },
+      { status: 413 },
     );
   }
 

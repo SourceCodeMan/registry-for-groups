@@ -72,3 +72,39 @@ export const uploadLimiter: Limiter = redis
       }),
     )
   : memoryLimiter(30, 60 * 60 * 1000);
+
+// Join-by-search requests: 10 per account per hour.
+export const joinLimiter: Limiter = redis
+  ? upstash(
+      new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(10, "1 h"),
+        prefix: "rl:join",
+        analytics: false,
+      }),
+    )
+  : memoryLimiter(10, 60 * 60 * 1000);
+
+// Group search: 30 per account per minute.
+export const searchLimiter: Limiter = redis
+  ? upstash(
+      new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(30, "1 m"),
+        prefix: "rl:search",
+        analytics: false,
+      }),
+    )
+  : memoryLimiter(30, 60 * 1000);
+
+// Anonymous pageview beacon: 30 per IP per minute.
+export const pageviewLimiter: Limiter = redis
+  ? upstash(
+      new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(30, "1 m"),
+        prefix: "rl:pageview",
+        analytics: false,
+      }),
+    )
+  : memoryLimiter(30, 60 * 1000);

@@ -47,16 +47,18 @@ const itemSchema = z.object({
   url: z.string().optional().nullable(),
   imageUrl: z.string().optional().nullable(),
   price: z.string().optional().nullable(),
-  quantity: z.coerce.number().int().min(1).max(99).catch(1),
+  quantity: z.coerce.number().int().min(1).max(99),
 });
 
 export type ItemInput = z.input<typeof itemSchema>;
+
+const MAX_CENTS = 99_999_999;
 
 function priceToCents(price?: string | null): number | null {
   if (!price) return null;
   const n = Number.parseFloat(String(price).replace(/[^0-9.]/g, ""));
   if (!Number.isFinite(n) || n < 0) return null;
-  return Math.round(n * 100);
+  return Math.min(MAX_CENTS, Math.round(n * 100));
 }
 
 /* ------------------------------- lists -------------------------------- */
@@ -129,7 +131,7 @@ export async function deleteListAction(listId: string): Promise<void> {
     .from(items)
     .where(eq(items.listId, listId));
   await db.delete(lists).where(eq(lists.id, listId));
-  await Promise.all(imgs.map((r) => deleteOwnedBlob(r.imageUrl)));
+  await Promise.all(imgs.map((r) => deleteOwnedBlob(r.imageUrl, user.id)));
   redirect(list!.organizationId ? `/app/groups/${list!.organizationId}` : "/app");
 }
 
@@ -170,27 +172,36 @@ export async function createItemAction(
   const v = validateItem(data);
   if ("error" in v) return { ok: false, error: v.error };
 
-  // A pick list is capped at 10 options.
-  if (list.kind === "pick") {
-    const [{ n } = { n: 0 }] = await db
-      .select({ n: sql<number>`count(*)::int` })
-      .from(items)
-      .where(eq(items.listId, listId));
-    if ((n ?? 0) >= 10)
+  try {
+    await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select id from lists where id = ${listId} for update`,
+      );
+      if (list.kind === "pick") {
+        const [{ n } = { n: 0 }] = await tx
+          .select({ n: sql<number>`count(*)::int` })
+          .from(items)
+          .where(eq(items.listId, listId));
+        if ((n ?? 0) >= 10) {
+          throw new Error("PICK_CAP");
+        }
+      }
+      const [{ max } = { max: 0 }] = await tx
+        .select({ max: sql<number>`coalesce(max(${items.sortOrder}), 0)` })
+        .from(items)
+        .where(eq(items.listId, listId));
+      await tx.insert(items).values({
+        listId,
+        ...v.values,
+        sortOrder: (max ?? 0) + 1,
+      });
+    });
+  } catch (e) {
+    if (e instanceof Error && e.message === "PICK_CAP") {
       return { ok: false, error: "A pick list can have at most 10 options." };
+    }
+    throw e;
   }
-
-  // Append to the end.
-  const [{ max } = { max: 0 }] = await db
-    .select({ max: sql<number>`coalesce(max(${items.sortOrder}), 0)` })
-    .from(items)
-    .where(eq(items.listId, listId));
-
-  await db.insert(items).values({
-    listId,
-    ...v.values,
-    sortOrder: (max ?? 0) + 1,
-  });
   return { ok: true };
 }
 
@@ -209,7 +220,7 @@ export async function updateItemAction(
   await db.update(items).set(v.values).where(eq(items.id, itemId));
   // A swapped-out photo we hosted shouldn't linger publicly.
   if (oldImage && oldImage !== v.values.imageUrl) {
-    await deleteOwnedBlob(oldImage);
+    await deleteOwnedBlob(oldImage, user.id);
   }
   return { ok: true };
 }
@@ -221,7 +232,7 @@ export async function deleteItemAction(
   const owned = await requireOwnedItem(user.id, itemId);
   if (!owned) return { ok: false, error: "Not found." };
   await db.delete(items).where(eq(items.id, itemId));
-  await deleteOwnedBlob(owned.item.imageUrl);
+  await deleteOwnedBlob(owned.item.imageUrl, user.id);
   return { ok: true };
 }
 

@@ -162,6 +162,7 @@ function extract(html: string, baseUrl: string): UnfurlResult {
  * from a normal miss.
  */
 export async function unfurl(rawUrl: string): Promise<UnfurlResult> {
+  if (rawUrl.length > 2048) return EMPTY;
   let url: URL;
   try {
     url = new URL(rawUrl);
@@ -200,6 +201,11 @@ export async function unfurl(rawUrl: string): Promise<UnfurlResult> {
     while (received < MAX_BYTES) {
       const { done, value } = await reader.read();
       if (done) break;
+      const room = MAX_BYTES - received;
+      if (value.length > room) {
+        chunks.push(value.subarray(0, room));
+        break;
+      }
       received += value.length;
       chunks.push(value);
     }

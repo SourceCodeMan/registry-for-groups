@@ -42,7 +42,8 @@ export default async function GivingPage() {
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  For {c.ownerName} · {c.listTitle} · {c.groupName}
+                  For {c.ownerName} · {c.listTitle}
+                  {c.groupName ? ` · ${c.groupName}` : " · personal list"}
                 </p>
                 {c.url && (
                   <a

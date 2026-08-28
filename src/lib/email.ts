@@ -8,10 +8,17 @@ type SendArgs = {
   text: string;
 };
 
+/** Public origin with no trailing slash, or null if unset. */
+export function publicAppUrl(): string | null {
+  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (!raw) return null;
+  return raw.replace(/\/$/, "");
+}
+
 /**
  * Send a transactional email via Resend's REST API. If RESEND_API_KEY is unset
  * (local dev), it logs to the console instead so flows are testable without an
- * account. The real key is wired at deploy.
+ * account. Throws on a real send failure so callers don't report success.
  */
 export async function sendEmail({ to, subject, html, text }: SendArgs) {
   const key = process.env.RESEND_API_KEY;
@@ -25,20 +32,19 @@ export async function sendEmail({ to, subject, html, text }: SendArgs) {
     return;
   }
 
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${key}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ from, to, subject, html, text }),
-    });
-    if (!res.ok) {
-      console.error("[email] Resend error", res.status, await res.text());
-    }
-  } catch (e) {
-    console.error("[email] send failed", (e as Error).message);
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${key}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ from, to, subject, html, text }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error("[email] Resend error", res.status, body);
+    throw new Error(`Email send failed (${res.status})`);
   }
 }
 
@@ -85,6 +91,18 @@ export function resetPasswordEmail(url: string) {
       { url, label: "Reset password" },
     ),
     text: `Reset your Registry for Groups password (link expires in 1 hour):\n${url}`,
+  };
+}
+
+export function verifyEmail(url: string) {
+  return {
+    subject: "Verify your Registry for Groups email",
+    html: shell(
+      "Confirm your email",
+      "Tap the button below to verify this address and finish creating your account.",
+      { url, label: "Verify email" },
+    ),
+    text: `Verify your Registry for Groups email:\n${url}`,
   };
 }
 

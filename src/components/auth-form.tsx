@@ -62,18 +62,28 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             : undefined,
         );
         if (error) {
-          toast.error(error.message ?? "Could not create your account.");
+          toast.error("Could not create your account.");
           // The token was consumed; get a fresh one for any retry.
           turnstileRef.current?.reset();
           return;
         }
+        toast.success("Check your email for a verification link.");
+        router.push("/login");
+        return;
       } else {
         const { error } = await authClient.signIn.email({
           email: email.trim(),
           password,
         });
         if (error) {
-          toast.error(error.message ?? "Invalid email or password.");
+          const unverified =
+            error.code === "EMAIL_NOT_VERIFIED" ||
+            /verif/i.test(error.message ?? "");
+          toast.error(
+            unverified
+              ? "Check your email to verify your account."
+              : "Invalid email or password.",
+          );
           return;
         }
       }
@@ -93,7 +103,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         <CardTitle>{isSignup ? "Create your account" : "Welcome back"}</CardTitle>
         <CardDescription>
           {isSignup
-            ? "Start a registry or join your group."
+            ? "Start a registry or join your group. We'll email you a verification link."
             : "Log in to your registries."}
         </CardDescription>
       </CardHeader>

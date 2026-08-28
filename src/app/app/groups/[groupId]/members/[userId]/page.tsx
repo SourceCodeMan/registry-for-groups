@@ -118,6 +118,8 @@ export default async function MemberListsPage({
                         itemId={item.id}
                         claimState={item.claimState}
                         mine={item.mine}
+                        quantity={item.quantity}
+                        claimedCount={item.claimedCount}
                       />
                     </div>
                   </div>

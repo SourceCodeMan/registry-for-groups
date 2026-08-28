@@ -62,13 +62,29 @@ export async function updatePickListAction(
   if (!parsed.success)
     return { ok: false, error: "Please give the pick list a name." };
 
-  await db
-    .update(lists)
-    .set({
-      title: parsed.data,
-      maxPicksPerMember: clampMaxPicks(input.maxPicksPerMember),
-    })
-    .where(eq(lists.id, listId));
+  const max = clampMaxPicks(input.maxPicksPerMember);
+  await db.transaction(async (tx) => {
+    await tx
+      .update(lists)
+      .set({ title: parsed.data, maxPicksPerMember: max })
+      .where(eq(lists.id, listId));
+    // Drop extras so a lowered cap actually takes effect (keep earliest picks).
+    await tx.execute(sql`
+      delete from picks p
+      using (
+        select id from (
+          select id,
+            row_number() over (
+              partition by picker_user_id order by created_at
+            ) as rn
+          from picks
+          where list_id = ${listId}
+        ) ranked
+        where rn > ${max}
+      ) extra
+      where p.id = extra.id
+    `);
+  });
   return { ok: true };
 }
 
@@ -82,7 +98,7 @@ export async function deletePickListAction(listId: string): Promise<void> {
     .from(items)
     .where(eq(items.listId, listId));
   await db.delete(lists).where(eq(lists.id, listId));
-  await Promise.all(imgs.map((r) => deleteOwnedBlob(r.imageUrl)));
+  await Promise.all(imgs.map((r) => deleteOwnedBlob(r.imageUrl, user.id)));
   redirect(groupId ? `/app/groups/${groupId}` : "/app");
 }
 
@@ -102,22 +118,25 @@ export async function togglePickAction(
   if (!row || row.item.listId !== listId)
     return { ok: false, error: "Not found." };
 
-  const [existing] = await db
-    .select({ id: picks.id })
-    .from(picks)
-    .where(and(eq(picks.itemId, itemId), eq(picks.pickerUserId, user.id)))
-    .limit(1);
-
-  if (existing) {
-    await db.delete(picks).where(eq(picks.id, existing.id));
-    return { ok: true, picked: false };
-  }
-
   const max = row.list.maxPicksPerMember;
   try {
-    if (max <= 1) {
-      // Single-choice: replace any prior pick on this list.
-      await db.transaction(async (tx) => {
+    return await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select id from lists where id = ${listId} for update`,
+      );
+
+      const [existing] = await tx
+        .select({ id: picks.id })
+        .from(picks)
+        .where(and(eq(picks.itemId, itemId), eq(picks.pickerUserId, user.id)))
+        .limit(1);
+
+      if (existing) {
+        await tx.delete(picks).where(eq(picks.id, existing.id));
+        return { ok: true, picked: false };
+      }
+
+      if (max <= 1) {
         await tx
           .delete(picks)
           .where(
@@ -126,24 +145,34 @@ export async function togglePickAction(
         await tx
           .insert(picks)
           .values({ listId, itemId, pickerUserId: user.id });
-      });
-    } else {
-      const [{ n } = { n: 0 }] = await db
-        .select({ n: sql<number>`count(*)::int` })
-        .from(picks)
-        .where(
-          and(eq(picks.listId, listId), eq(picks.pickerUserId, user.id)),
-        );
-      if ((n ?? 0) >= max)
-        return {
-          ok: false,
-          error: `You can choose up to ${max} option${max === 1 ? "" : "s"}.`,
-        };
-      await db.insert(picks).values({ listId, itemId, pickerUserId: user.id });
+      } else {
+        const [{ n } = { n: 0 }] = await tx
+          .select({ n: sql<number>`count(*)::int` })
+          .from(picks)
+          .where(
+            and(eq(picks.listId, listId), eq(picks.pickerUserId, user.id)),
+          );
+        if ((n ?? 0) >= max) {
+          return {
+            ok: false,
+            error: `You can choose up to ${max} option${max === 1 ? "" : "s"}.`,
+          };
+        }
+        await tx
+          .insert(picks)
+          .values({ listId, itemId, pickerUserId: user.id });
+      }
+      return { ok: true, picked: true };
+    });
+  } catch (e) {
+    if (
+      typeof e === "object" &&
+      e !== null &&
+      "code" in e &&
+      (e as { code: unknown }).code === "23505"
+    ) {
+      return { ok: true, picked: true };
     }
-  } catch {
-    // Unique (item, picker) race — the pick already exists, treat as success.
-    return { ok: true, picked: true };
+    throw e;
   }
-  return { ok: true, picked: true };
 }

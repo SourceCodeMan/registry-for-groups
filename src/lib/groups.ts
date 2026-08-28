@@ -8,7 +8,7 @@ import {
   organization,
   user as users,
 } from "@/db/schema";
-import { RESERVED_SLUGS, normalizeSlug } from "@/lib/slug";
+import { normalizeSlug, validateSlug } from "@/lib/slug";
 
 export type GroupBySlug = {
   id: string;
@@ -55,17 +55,24 @@ export async function isSlugTaken(
 
 /** A clean default slug derived from the group name, made unique. */
 export async function pickAvailableSlug(name: string): Promise<string> {
-  let base = normalizeSlug(name).slice(0, 32).replace(/-+$/g, "");
-  if (base.length < 3 || RESERVED_SLUGS.has(base)) {
-    base = `group-${base}`.replace(/-+$/g, "").slice(0, 32);
+  const trySlug = async (raw: string): Promise<string | null> => {
+    const v = validateSlug(raw);
+    if (!v.ok) return null;
+    if (await isSlugTaken(v.slug)) return null;
+    return v.slug;
+  };
+
+  const fromName = await trySlug(name);
+  if (fromName) return fromName;
+
+  const prefixed = await trySlug(`g-${normalizeSlug(name)}`.slice(0, 32));
+  if (prefixed) return prefixed;
+
+  for (let i = 0; i < 8; i++) {
+    const cand = await trySlug(`g-${crypto.randomBytes(4).toString("hex")}`);
+    if (cand) return cand;
   }
-  if (base.length < 3) base = "group";
-  if (!(await isSlugTaken(base))) return base;
-  for (let i = 0; i < 6; i++) {
-    const cand = `${base}-${crypto.randomBytes(2).toString("hex")}`.slice(0, 40);
-    if (!(await isSlugTaken(cand))) return cand;
-  }
-  return `${base}-${crypto.randomBytes(4).toString("hex")}`;
+  return `g-${crypto.randomBytes(8).toString("hex")}`;
 }
 
 export type GroupSearchResult = {

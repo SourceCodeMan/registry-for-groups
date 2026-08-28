@@ -40,7 +40,7 @@ function emptyFields(item?: ItemData) {
   };
 }
 
-const MAX_UPLOAD_BYTES = 6 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 /** Shrink an image on-device to a sane size before upload — keeps storage
  *  (and the user's data) small. Falls back to the original on any failure. */

@@ -21,10 +21,51 @@ export type ViewItem = {
   imageUrl: string | null;
   priceCents: number | null;
   quantity: number;
+  /** How many claims currently exist (including the viewer's). Never who. */
+  claimedCount: number;
   claimState: ClaimState;
   /** The VIEWER's own claim on this item (never anyone else's). */
   mine: "reserved" | "purchased" | null;
 };
+
+type ClaimAggRow = {
+  itemId: string;
+  buyerUserId: string | null;
+  state: string;
+};
+
+/** Occupancy for one item as seen by `viewerId`. Buyer ids stay here. */
+export function occupancyForViewer(
+  quantity: number,
+  rows: ClaimAggRow[],
+  viewerId: string,
+): Pick<ViewItem, "claimedCount" | "claimState" | "mine"> {
+  const qty = Math.max(1, quantity);
+  let claimedCount = 0;
+  let purchased = false;
+  let reserved = false;
+  let mine: ViewItem["mine"] = null;
+  for (const c of rows) {
+    claimedCount++;
+    if (c.buyerUserId === viewerId) {
+      mine = c.state as "reserved" | "purchased";
+      continue;
+    }
+    if (c.state === "purchased") purchased = true;
+    else if (c.state === "reserved") reserved = true;
+  }
+  const full = claimedCount >= qty;
+  const claimState: ClaimState = mine
+    ? mine
+    : !full
+      ? "unclaimed"
+      : purchased
+        ? "purchased"
+        : reserved
+          ? "reserved"
+          : "unclaimed";
+  return { claimedCount, claimState, mine };
+}
 
 export type ViewList = {
   id: string;
@@ -99,40 +140,20 @@ export async function getMemberListsForViewer(
         .where(inArray(claims.itemId, itemIds))
     : [];
 
-  // Aggregate on the server; buyer ids never make it into the returned shape.
-  const agg = new Map<
-    string,
-    { purchased: boolean; reserved: boolean; mine: "reserved" | "purchased" | null }
-  >();
-  for (const it of allItems)
-    agg.set(it.id, { purchased: false, reserved: false, mine: null });
+  const claimsByItem = new Map<string, ClaimAggRow[]>();
   for (const c of allClaims) {
-    const a = agg.get(c.itemId);
-    if (!a) continue;
-    if (c.buyerUserId === viewerId) {
-      // The viewer's own claim feeds `mine` only — never the "others"
-      // aggregate, so a co-claimant can't be inferred from a state mismatch.
-      a.mine = c.state as "reserved" | "purchased";
-      continue;
-    }
-    if (c.state === "purchased") a.purchased = true;
-    else if (c.state === "reserved") a.reserved = true;
+    const arr = claimsByItem.get(c.itemId) ?? [];
+    arr.push(c);
+    claimsByItem.set(c.itemId, arr);
   }
 
   const itemsByList = new Map<string, ViewItem[]>();
   for (const it of allItems) {
-    const a = agg.get(it.id)!;
-    // If the viewer holds a claim, the public state mirrors THEIR state — we
-    // never surface a stronger aggregate that would prove someone else claimed
-    // it too. Otherwise it reflects other members' claims (so they don't
-    // double-buy), but never who.
-    const claimState: ClaimState = a.mine
-      ? a.mine
-      : a.purchased
-        ? "purchased"
-        : a.reserved
-          ? "reserved"
-          : "unclaimed";
+    const occ = occupancyForViewer(
+      it.quantity,
+      claimsByItem.get(it.id) ?? [],
+      viewerId,
+    );
     const arr = itemsByList.get(it.listId) ?? [];
     arr.push({
       id: it.id,
@@ -142,8 +163,9 @@ export async function getMemberListsForViewer(
       imageUrl: it.imageUrl,
       priceCents: it.priceCents,
       quantity: it.quantity,
-      claimState,
-      mine: a.mine,
+      claimedCount: occ.claimedCount,
+      claimState: occ.claimState,
+      mine: occ.mine,
     });
     itemsByList.set(it.listId, arr);
   }
@@ -175,13 +197,22 @@ export async function requireClaimableItem(viewerId: string, itemId: string) {
     .limit(1);
   if (!row) return null;
   if (row.list.ownerUserId === viewerId) return null;
-  // Personal (ungrouped) lists aren't browsable, so nothing on them is claimable.
-  if (row.list.organizationId === null) return null;
   // Pick-list options are chosen, never claimed — keep the two flows disjoint.
   if (row.list.kind !== "wishlist") return null;
+
+  const [existing] = await db
+    .select({ id: claims.id })
+    .from(claims)
+    .where(and(eq(claims.itemId, itemId), eq(claims.buyerUserId, viewerId)))
+    .limit(1);
+
+  // Personal lists aren't browsable. An existing claim (list was later
+  // detached) can still be updated or released by its buyer.
+  if (row.list.organizationId === null) return existing ? row : null;
+
   const membership = await getMembership(viewerId, row.list.organizationId);
-  if (!membership) return null;
-  return row;
+  if (membership) return row;
+  return existing ? row : null;
 }
 
 /** The viewer's own claims across every group (the "Gifts I'm giving" view). */
@@ -202,7 +233,7 @@ export async function getMyClaims(viewerId: string) {
     .innerJoin(items, eq(claims.itemId, items.id))
     .innerJoin(lists, eq(items.listId, lists.id))
     .innerJoin(users, eq(lists.ownerUserId, users.id))
-    .innerJoin(organization, eq(lists.organizationId, organization.id))
+    .leftJoin(organization, eq(lists.organizationId, organization.id))
     .where(eq(claims.buyerUserId, viewerId))
     .orderBy(asc(organization.name), asc(users.name));
 }
@@ -215,6 +246,7 @@ export type RequestedGift = {
   imageUrl: string | null;
   priceCents: number | null;
   quantity: number;
+  claimedCount: number;
   createdAt: Date;
   ownerName: string;
   listTitle: string;
@@ -284,34 +316,24 @@ export async function getRequestedGiftsForViewer(
     .from(claims)
     .where(inArray(claims.itemId, itemIds));
 
-  const agg = new Map<
-    string,
-    { purchased: boolean; reserved: boolean; mine: "reserved" | "purchased" | null }
-  >();
-  for (const r of rows)
-    agg.set(r.itemId, { purchased: false, reserved: false, mine: null });
+  const claimsByItem = new Map<string, ClaimAggRow[]>();
   for (const c of allClaims) {
-    const a = agg.get(c.itemId);
-    if (!a) continue;
-    if (c.buyerUserId === viewerId) {
-      a.mine = c.state as "reserved" | "purchased";
-      continue;
-    }
-    if (c.state === "purchased") a.purchased = true;
-    else if (c.state === "reserved") a.reserved = true;
+    const arr = claimsByItem.get(c.itemId) ?? [];
+    arr.push(c);
+    claimsByItem.set(c.itemId, arr);
   }
 
   return rows.map((r) => {
-    const a = agg.get(r.itemId)!;
-    // Mirror the viewer's own claim if they hold one (so a co-claimant can't be
-    // inferred); otherwise reflect others' claims without ever naming them.
-    const claimState: ClaimState = a.mine
-      ? a.mine
-      : a.purchased
-        ? "purchased"
-        : a.reserved
-          ? "reserved"
-          : "unclaimed";
-    return { ...r, claimState, mine: a.mine };
+    const occ = occupancyForViewer(
+      r.quantity,
+      claimsByItem.get(r.itemId) ?? [],
+      viewerId,
+    );
+    return {
+      ...r,
+      claimedCount: occ.claimedCount,
+      claimState: occ.claimState,
+      mine: occ.mine,
+    };
   });
 }
