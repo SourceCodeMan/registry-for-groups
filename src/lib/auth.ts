@@ -16,8 +16,8 @@ const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
 const turnstileSite = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 if (process.env.VERCEL_ENV === "production") {
   if (!turnstileSecret || !turnstileSite) {
-    throw new Error(
-      "TURNSTILE_SECRET_KEY and NEXT_PUBLIC_TURNSTILE_SITE_KEY are required in production",
+    console.error(
+      "TURNSTILE_SECRET_KEY and NEXT_PUBLIC_TURNSTILE_SITE_KEY should both be set in production",
     );
   }
 }
